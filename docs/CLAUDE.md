@@ -56,7 +56,7 @@ Duas formas de entrada, mesmo schema (`campaign_reports`):
 - **Manual:** upload de CSV/XLSX pelo admin/superadmin, com parsing e validação de colunas.
 
 ## Modelo de dados (tabelas-chave)
-`organizations`, `profiles` (role, organization_id), `templates` (+ `is_default`), `contact_lists` + `contacts` (+ `is_valid`), `campaigns` (+ `payment_status`, `payment_amount`, `payment_registered_by`, `payment_registered_at`), `campaign_reports`, `webhook_configs` (+ segredo HMAC), `webhook_deliveries` (log/retry), `audit_log`.
+`organizations`, `profiles` (role, organization_id), `templates` (+ `is_default`, `use_variations`), `message_variations` (catálogo do "Variar Texto"), `contact_lists` (+ `total_contacts`/`valid_contacts`/`invalid_contacts` — agregados calculados no parse; o CSV original fica só no Storage, **sem** tabela `contacts` linha a linha — inchava o banco sem nenhum consumidor real), `campaigns` (sem campos de pagamento — removido do MVP), `campaign_reports`, `webhook_configs` (+ segredo HMAC), `webhook_deliveries` (log/retry), `audit_log`.
 
 ## Segurança (não negociável)
 - RLS ativa em todas as tabelas `public.*`, com policies por `organization_id` (admin) e por autor (cliente).
