@@ -65,6 +65,40 @@ export async function createOrgAdmin(
   return { error: null, generatedPassword: password, createdEmail: email };
 }
 
+export async function resetAdminPassword(adminId: string): Promise<{ password: string }> {
+  const actor = await requireRole(["superadmin"]);
+
+  const supabase = await createClient();
+  const { data: target, error: fetchError } = await supabase
+    .from("profiles")
+    .select("id, organization_id, full_name")
+    .eq("id", adminId)
+    .eq("role", "admin")
+    .single();
+
+  if (fetchError || !target || !target.organization_id) {
+    throw new Error("Administrador não encontrado.");
+  }
+
+  const admin = createAdminClient();
+  const password = generateTemporaryPassword();
+  const { error: updateError } = await admin.auth.admin.updateUserById(adminId, { password });
+
+  if (updateError) {
+    throw new Error("Não foi possível redefinir a senha.");
+  }
+
+  await admin.from("audit_log").insert({
+    actor_id: actor.id,
+    actor_role: actor.role,
+    action: "org_admin_password_reset",
+    organization_id: target.organization_id,
+    metadata: { admin_id: adminId, full_name: target.full_name },
+  });
+
+  return { password };
+}
+
 export async function deleteOrgAdmin(adminId: string) {
   const actor = await requireRole(["superadmin"]);
 

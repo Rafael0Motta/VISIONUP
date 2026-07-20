@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
-import { updateCliente, deleteCliente, type ClienteFormState } from "./actions";
+import { updateCliente, deleteCliente, resetClientePassword, type ClienteFormState } from "./actions";
 import { useActionToast } from "@/lib/use-action-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DeleteButton } from "@/components/delete-button";
+import { ResetPasswordButton } from "@/components/reset-password-button";
 
 const initialState: ClienteFormState = { error: null };
 
@@ -78,6 +79,11 @@ export function ClienteRow({
         <Button size="sm" variant="outline" onClick={() => setIsEditing(true)}>
           Editar
         </Button>
+        <ResetPasswordButton
+          action={resetClientePassword.bind(null, id)}
+          confirmMessage={`Redefinir a senha de ${fullName ?? "este cliente"}? A senha atual deixa de funcionar.`}
+          targetLabel={fullName ?? "cliente"}
+        />
         <DeleteButton
           action={deleteCliente.bind(null, id)}
           confirmMessage={`Excluir ${fullName ?? "este cliente"}? Isso remove também templates, campanhas e listas de contatos dele. Não pode ser desfeito.`}

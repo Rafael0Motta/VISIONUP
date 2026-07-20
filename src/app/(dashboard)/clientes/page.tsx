@@ -9,23 +9,23 @@ export default async function ClientesPage() {
   const actor = await requireRole(["admin"]);
   const supabase = await createClient();
 
-  const { data: organization } = await supabase
-    .from("organizations")
-    .select("name, display_name")
-    .eq("id", actor.organization_id as string)
-    .single();
-
-  const { data: clientes } = await supabase
-    .from("profiles")
-    .select("id, full_name, email")
-    .eq("role", "cliente")
-    .eq("organization_id", actor.organization_id as string)
-    .order("full_name");
-
-  const { data: campaigns } = await supabase
-    .from("campaigns")
-    .select("created_by")
-    .eq("organization_id", actor.organization_id as string);
+  const [{ data: organization }, { data: clientes }, { data: campaigns }] = await Promise.all([
+    supabase
+      .from("organizations")
+      .select("name, display_name")
+      .eq("id", actor.organization_id as string)
+      .single(),
+    supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .eq("role", "cliente")
+      .eq("organization_id", actor.organization_id as string)
+      .order("full_name"),
+    supabase
+      .from("campaigns")
+      .select("created_by")
+      .eq("organization_id", actor.organization_id as string),
+  ]);
 
   const campaignCountByCliente = new Map<string, number>();
   for (const c of campaigns ?? []) {

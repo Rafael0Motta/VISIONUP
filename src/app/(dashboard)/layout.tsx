@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   Building2,
   CheckSquare,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   MessageSquareText,
@@ -38,7 +39,7 @@ const NAV_BY_ROLE = {
 };
 
 async function resolveBrandText(profile: { role: "superadmin" | "admin" | "cliente"; organization_id: string | null }) {
-  if (profile.role === "superadmin" || !profile.organization_id) return "VisionUp";
+  if (profile.role === "superadmin" || !profile.organization_id) return "Disparo Certo";
 
   const supabase = await createClient();
   const { data: org } = await supabase
@@ -47,7 +48,7 @@ async function resolveBrandText(profile: { role: "superadmin" | "admin" | "clien
     .eq("id", profile.organization_id)
     .single();
 
-  if (!org) return "VisionUp";
+  if (!org) return "Disparo Certo";
   // Admin sempre vê o nome real (é quem gerencia o nome de exibição);
   // cliente vê o nome de exibição, se definido.
   return profile.role === "admin" ? org.name : (org.display_name || org.name);
@@ -101,6 +102,13 @@ export default async function DashboardLayout({
         <p className="truncate px-2 text-sm text-muted-foreground" title={profile.full_name ?? "Usuário"}>
           {profile.full_name ?? "Usuário"}
         </p>
+        <Link
+          href="/conta"
+          className="flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        >
+          <KeyRound className="size-3.5" />
+          Minha conta
+        </Link>
         <form action={signOut}>
           <Button type="submit" variant="outline" size="sm" className="w-full justify-center">
             <LogOut className="size-3.5" />

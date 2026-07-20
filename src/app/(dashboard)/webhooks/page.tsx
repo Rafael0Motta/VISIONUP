@@ -26,17 +26,16 @@ export default async function WebhooksPage() {
   await requireRole(["superadmin"]);
   const supabase = await createClient();
 
-  const { data: configs } = await supabase
-    .from("webhook_configs")
-    .select("event, target_url, is_active, hmac_secret");
+  const [{ data: configs }, { data: deliveries }] = await Promise.all([
+    supabase.from("webhook_configs").select("event, target_url, is_active, hmac_secret"),
+    supabase
+      .from("webhook_deliveries")
+      .select("id, event, status, attempts, target_url, created_at, last_attempt_at, response_status")
+      .order("created_at", { ascending: false })
+      .limit(50),
+  ]);
 
   const configByEvent = new Map((configs ?? []).map((c) => [c.event, c]));
-
-  const { data: deliveries } = await supabase
-    .from("webhook_deliveries")
-    .select("id, event, status, attempts, target_url, created_at, last_attempt_at, response_status")
-    .order("created_at", { ascending: false })
-    .limit(50);
 
   return (
     <div className="flex flex-col gap-6">

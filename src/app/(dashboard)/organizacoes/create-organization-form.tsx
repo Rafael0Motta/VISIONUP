@@ -17,7 +17,7 @@ export function CreateOrganizationForm() {
     <form action={formAction} className="flex flex-wrap items-end gap-3">
       <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-none">
         <Label htmlFor="name">Nova organização</Label>
-        <Input id="name" name="name" placeholder="Ex: VisionUp" required disabled={isPending} />
+        <Input id="name" name="name" placeholder="Ex: Minha Empresa" required disabled={isPending} />
       </div>
       <Button type="submit" disabled={isPending}>
         {isPending ? "Criando..." : "Criar"}

@@ -149,6 +149,40 @@ export async function updateCliente(
   return { error: null };
 }
 
+export async function resetClientePassword(clienteId: string): Promise<{ password: string }> {
+  const actor = await requireRole(["admin", "superadmin"]);
+
+  const supabase = await createClient();
+  const { data: target, error: fetchError } = await supabase
+    .from("profiles")
+    .select("id, organization_id, full_name")
+    .eq("id", clienteId)
+    .eq("role", "cliente")
+    .single();
+
+  if (fetchError || !target || !target.organization_id) {
+    throw new Error("Cliente não encontrado ou sem permissão.");
+  }
+
+  const admin = createAdminClient();
+  const password = generateTemporaryPassword();
+  const { error: updateError } = await admin.auth.admin.updateUserById(clienteId, { password });
+
+  if (updateError) {
+    throw new Error("Não foi possível redefinir a senha.");
+  }
+
+  await admin.from("audit_log").insert({
+    actor_id: actor.id,
+    actor_role: actor.role,
+    action: "client_password_reset",
+    organization_id: target.organization_id,
+    metadata: { cliente_id: clienteId, full_name: target.full_name },
+  });
+
+  return { password };
+}
+
 export async function deleteCliente(clienteId: string) {
   const actor = await requireRole(["admin", "superadmin"]);
 

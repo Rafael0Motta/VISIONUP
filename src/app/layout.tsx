@@ -11,7 +11,7 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "VisionUp — Campanhas WhatsApp",
+  title: "Disparo Certo — Campanhas WhatsApp",
   description: "Plataforma de governança de campanhas de WhatsApp.",
 };
 

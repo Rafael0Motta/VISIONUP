@@ -1,4 +1,4 @@
-# VisionUp
+# Disparo Certo
 
 Plataforma web multi-tenant de governança de campanhas de WhatsApp. O app cuida de organizações, aprovação de campanhas, templates e relatórios — o disparo em si (Infobip) e as automações de equipe (ClickUp) vivem no n8n, fora deste projeto. O app só troca dados com o n8n via webhooks (saída) e uma API autenticada por token de serviço (entrada).
 
@@ -84,7 +84,7 @@ Um único processo Node (`server.js`, gerado pelo build standalone do Next.js) a
 docker build \
   --build-arg NEXT_PUBLIC_SUPABASE_URL=... \
   --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=... \
-  -t visionup .
+  -t disparo-certo .
 
 docker run --rm -p 3000:3000 \
   -e NEXT_PUBLIC_SUPABASE_URL=... \
@@ -92,5 +92,5 @@ docker run --rm -p 3000:3000 \
   -e SUPABASE_SERVICE_ROLE_KEY=... \
   -e N8N_SERVICE_TOKEN=... \
   -e INTERNAL_API_TOKEN=... \
-  visionup
+  disparo-certo
 ```

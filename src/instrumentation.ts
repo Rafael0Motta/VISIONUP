@@ -13,9 +13,9 @@ export async function register() {
     // SO/Docker). `global` guarda o estado porque o dev server do Next.js
     // pode re-executar register() em hot-reload; sem essa trava agendaríamos
     // o cron várias vezes.
-    const g = globalThis as unknown as { __visionupWebhookCronStarted?: boolean };
-    if (!g.__visionupWebhookCronStarted) {
-      g.__visionupWebhookCronStarted = true;
+    const g = globalThis as unknown as { __webhookCronStarted?: boolean };
+    if (!g.__webhookCronStarted) {
+      g.__webhookCronStarted = true;
       const cron = await import("node-cron");
       const { processPendingDeliveries } = await import("@/lib/webhooks/process");
 

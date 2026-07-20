@@ -19,10 +19,14 @@ const ORIGIN_LABEL: Record<CampaignReport["origem"], string> = {
 export function ReportRow({
   campaignId,
   campaignName,
+  creatorName,
+  createdAt,
   reports,
 }: {
   campaignId: string;
   campaignName: string;
+  creatorName: string;
+  createdAt: string;
   reports: CampaignReport[];
 }) {
   const [state, formAction, isPending] = useActionState(
@@ -35,6 +39,10 @@ export function ReportRow({
   return (
     <TableRow>
       <TableCell className="align-top font-medium">{campaignName}</TableCell>
+      <TableCell className="align-top text-sm text-muted-foreground">{creatorName}</TableCell>
+      <TableCell className="align-top text-xs text-muted-foreground">
+        {new Date(createdAt).toLocaleString("pt-BR")}
+      </TableCell>
       <TableCell className="align-top">
         {reports.length === 0 ? (
           <p className="text-sm text-muted-foreground">Sem relatório ainda.</p>

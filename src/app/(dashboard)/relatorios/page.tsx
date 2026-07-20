@@ -23,7 +23,7 @@ export default async function RelatoriosPage() {
   const { data: campaigns } = await supabase
     .from("campaigns")
     .select(
-      "id, name, status, created_at, campaign_reports(id, origem, enviados, entregues, lidos, falhados, expirados, custo, importado_em)"
+      "id, name, status, created_at, creator:profiles!campaigns_created_by_fkey(full_name), campaign_reports(id, origem, enviados, entregues, lidos, falhados, expirados, custo, importado_em)"
     )
     .in("status", ["liberado", "enviando", "concluido", "falha"])
     .order("created_at", { ascending: false });
@@ -47,6 +47,8 @@ export default async function RelatoriosPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Campanha</TableHead>
+                <TableHead>Criada por</TableHead>
+                <TableHead>Criada em</TableHead>
                 <TableHead>Relatórios</TableHead>
                 <TableHead className="text-right">Importar manualmente</TableHead>
               </TableRow>
@@ -57,12 +59,14 @@ export default async function RelatoriosPage() {
                   key={c.id}
                   campaignId={c.id}
                   campaignName={c.name}
+                  creatorName={(c.creator as { full_name: string | null } | null)?.full_name ?? "—"}
+                  createdAt={c.created_at}
                   reports={(c.campaign_reports ?? []) as CampaignReport[]}
                 />
               ))}
               {(campaigns ?? []).length === 0 ? (
                 <TableRow>
-                  <td colSpan={3} className="p-4 text-center text-muted-foreground">
+                  <td colSpan={5} className="p-4 text-center text-muted-foreground">
                     Nenhuma campanha liberada ainda.
                   </td>
                 </TableRow>

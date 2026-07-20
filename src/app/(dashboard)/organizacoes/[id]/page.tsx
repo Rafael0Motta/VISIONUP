@@ -18,39 +18,32 @@ export default async function OrganizacaoDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: organization } = await supabase
-    .from("organizations")
-    .select("id, name, display_name")
-    .eq("id", id)
-    .single();
+  const [{ data: organization }, { data: clientes }, { data: orgCampaigns }, { data: admins }] =
+    await Promise.all([
+      supabase.from("organizations").select("id, name, display_name").eq("id", id).single(),
+      supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .eq("role", "cliente")
+        .eq("organization_id", id)
+        .order("full_name"),
+      supabase.from("campaigns").select("created_by").eq("organization_id", id),
+      supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .eq("role", "admin")
+        .eq("organization_id", id)
+        .order("full_name"),
+    ]);
 
   if (!organization) {
     notFound();
   }
 
-  const { data: clientes } = await supabase
-    .from("profiles")
-    .select("id, full_name, email")
-    .eq("role", "cliente")
-    .eq("organization_id", id)
-    .order("full_name");
-
-  const { data: orgCampaigns } = await supabase
-    .from("campaigns")
-    .select("created_by")
-    .eq("organization_id", id);
-
   const campaignCountByCliente = new Map<string, number>();
   for (const c of orgCampaigns ?? []) {
     campaignCountByCliente.set(c.created_by, (campaignCountByCliente.get(c.created_by) ?? 0) + 1);
   }
-
-  const { data: admins } = await supabase
-    .from("profiles")
-    .select("id, full_name, email")
-    .eq("role", "admin")
-    .eq("organization_id", id)
-    .order("full_name");
 
   return (
     <div className="flex flex-col gap-6">

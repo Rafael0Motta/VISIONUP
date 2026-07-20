@@ -29,17 +29,14 @@ export default async function CampanhasPage({
     query = query.eq("created_by", clienteId);
   }
 
-  const { data: campaigns } = await query;
+  const [{ data: campaigns }, { data: cliente }] = await Promise.all([
+    query,
+    isFilteredByCliente
+      ? supabase.from("profiles").select("full_name").eq("id", clienteId).single()
+      : Promise.resolve({ data: null }),
+  ]);
 
-  let filteredClienteName: string | null = null;
-  if (isFilteredByCliente) {
-    const { data: cliente } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", clienteId)
-      .single();
-    filteredClienteName = cliente?.full_name ?? "Cliente";
-  }
+  const filteredClienteName = isFilteredByCliente ? cliente?.full_name ?? "Cliente" : null;
 
   return (
     <div className="flex flex-col gap-6">

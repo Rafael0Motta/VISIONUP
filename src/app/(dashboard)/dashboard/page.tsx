@@ -167,8 +167,27 @@ export default async function DashboardPage({
     campaignsQuery = campaignsQuery.lte("created_at", `${params.to}T23:59:59`);
   }
 
-  const { data: campaignsData } = await campaignsQuery;
+  // As três consultas abaixo não dependem uma da outra — rodar em paralelo
+  // em vez de sequencial evita empilhar 3 idas e voltas ao banco à toa.
+  const clienteFilterOrgId = isAdmin ? (profile.organization_id as string) : scopedOrgId;
+  const [{ data: campaignsData }, { data: organizationsData }, { data: clienteOptionsData }] =
+    await Promise.all([
+      campaignsQuery,
+      isSuperadmin
+        ? supabase.from("organizations").select("id, name").order("name")
+        : Promise.resolve({ data: null }),
+      !isCliente && clienteFilterOrgId
+        ? supabase
+            .from("profiles")
+            .select("id, full_name")
+            .eq("organization_id", clienteFilterOrgId)
+            .eq("role", "cliente")
+            .order("full_name")
+        : Promise.resolve({ data: null }),
+    ]);
   const scopedCampaigns = campaignsData ?? [];
+  const organizations: { id: string; name: string }[] = organizationsData ?? [];
+  const clienteOptions: { id: string; full_name: string | null }[] = clienteOptionsData ?? [];
 
   // opções do filtro de campanha: todas as campanhas dentro do escopo atual (org/cliente/período)
   const campaignOptions = scopedCampaigns
@@ -197,24 +216,6 @@ export default async function DashboardPage({
   }
   const totals = sumReports(reports);
 
-  // ---- opções de filtro ----
-  let organizations: { id: string; name: string }[] = [];
-  if (isSuperadmin) {
-    const { data } = await supabase.from("organizations").select("id, name").order("name");
-    organizations = data ?? [];
-  }
-
-  let clienteOptions: { id: string; full_name: string | null }[] = [];
-  const clienteFilterOrgId = isAdmin ? (profile.organization_id as string) : scopedOrgId;
-  if (!isCliente && clienteFilterOrgId) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .eq("organization_id", clienteFilterOrgId)
-      .eq("role", "cliente")
-      .order("full_name");
-    clienteOptions = data ?? [];
-  }
 
   // ---- quebra por cliente (admin sempre; superadmin quando uma org está selecionada) ----
   let clienteBreakdown: {
