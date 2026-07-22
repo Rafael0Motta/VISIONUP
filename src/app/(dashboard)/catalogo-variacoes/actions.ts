@@ -31,13 +31,21 @@ export async function createVariation(
   return { error: null };
 }
 
-export async function toggleVariationActive(variationId: string, isActive: boolean) {
+export async function toggleVariationActive(variationId: string) {
   await requireRole(["superadmin"]);
 
   const supabase = await createClient();
+  const { data: current } = await supabase
+    .from("message_variations")
+    .select("is_active")
+    .eq("id", variationId)
+    .single();
+
+  if (!current) return;
+
   await supabase
     .from("message_variations")
-    .update({ is_active: !isActive })
+    .update({ is_active: !current.is_active })
     .eq("id", variationId);
 
   revalidatePath("/catalogo-variacoes");

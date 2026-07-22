@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-const STEPS = ["Identificação", "Mensagem", "Contatos", "Agendamento"];
+const STEPS = ["Identificação", "Mensagem", "Contatos", "Confirmação"];
 
 export function WizardSteps({ current }: { current: number }) {
   return (

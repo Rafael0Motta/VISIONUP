@@ -64,8 +64,8 @@ A plataforma é multi-tenant: **ATX/BluePrint** pode, no futuro, vender o mesmo 
 | **Registrar pagamento de campanha** | ✓ | ✓ (da própria organização) | — |
 | Liberar campanha aprovada (dispara envio ao n8n) | ✓ | ✓ | — |
 | Criar campanha | ✓ | ✓ | ✓ |
-| Definir/editar template padrão da organização | ✓ | ✓ | — |
-| Criar campanha a partir de template padrão | ✓ | ✓ | ✓ |
+| Gerenciar catálogo de variações de mensagem | ✓ | — | — |
+| Escolher variação do catálogo e preencher campanha (mídia, variáveis, rodapé, botões) | — | ✓ | ✓ |
 | Configurar endpoints de webhook (n8n) | ✓ | — | — |
 | **Ingerir relatório de disparo (manual — upload CSV/XLSX)** | ✓ | ✓ (da própria organização) | — |
 | Ver métricas | ✓ (todas as organizações) | ✓ (própria organização) | ✓ (próprias campanhas) |
@@ -91,7 +91,7 @@ rascunho → aguardando aprovação → aprovado → pagamento registrado* → l
 
 1. **Cliente** cria a campanha no wizard:
    - **Identificação** — nome da campanha, remetente.
-   - **Template** — seleciona um template (pode partir do **template padrão** da organização) ou cria um novo; define mídia (imagem/vídeo/documento), texto/copy, variáveis.
+   - **Mensagem** — o texto vem sempre de uma variação ativa do catálogo global (`/catalogo-variacoes`, mantido pelo superadmin); o cliente/admin só pode trocar a variação sorteada (botão "Variar template") e preencher as variáveis `{{N}}`, além de anexar mídia (imagem/vídeo), rodapé e botões próprios daquela campanha — nunca digita o corpo da mensagem.
    - **Contatos** — upload de CSV; validação de formato de telefone.
    - **Revisão** — prévia da mensagem; envia para aprovação → dispara `campaign_created` e `campaign_submitted_for_approval`.
 2. **Admin/Superadmin** vê o item em `/aprovacoes`, com **prévia completa do template renderizado** e **resumo da lista de contatos** (total, válidos, inválidos).
@@ -105,8 +105,9 @@ rascunho → aguardando aprovação → aprovado → pagamento registrado* → l
 7. Cada mudança de status recebida do n8n também deve dis parar o webhook correspondente de volta para fora (ex.: `campaign_completed`) — útil se o próprio n8n quiser escutar confirmações do sistema, ou se outro sistema (ex.: ClickUp) também estiver escutando webhooks do app diretamente no futuro.
 
 ### 3.3 Templates
-- Cada organização tem um ou mais templates marcados como **padrão** (`is_default = true`), usados como ponto de partida ao criar uma nova campanha.
-- **A definir com a VisionUp:** a estrutura exata do "modelo padrão" (layout de cabeçalho/mídia, corpo/texto, rodapé, botões) ainda será enviada — este PRD assume que o modelo padrão é apenas um template pré-preenchido e editável, não uma trava de conteúdo. Assim que a estrutura for definida, esta seção deve ser atualizada com os campos obrigatórios do modelo.
+- Não existe mais autoria de template por organização — nem `admin` nem `cliente` digitam o corpo da mensagem. O texto vem exclusivamente do **catálogo de variações** (`message_variations`), uma lista de textos com `{{N}}` gerenciada só pelo `superadmin` em `/catalogo-variacoes`.
+- No wizard de campanha (etapa "Mensagem"), o usuário escolhe uma variação ativa do catálogo (botão "Variar template" sorteia entre as ativas) e só preenche os valores de exemplo das variáveis `{{N}}`, além de anexar mídia (imagem/vídeo), rodapé e botões — esses três últimos são próprios de cada campanha, não fazem parte do catálogo. O servidor sempre revalida a variação escolhida contra `message_variations` (nunca confia no texto vindo do formulário), pra garantir que o corpo nunca seja adulterado.
+- Cada campanha grava sua própria linha em `templates` (corpo copiado da variação escolhida + mídia/rodapé/botões/variáveis daquela campanha) — a tabela deixou de ser algo editável livremente pelo usuário.
 - Nomenclatura de campos do wizard de template (herdada das melhorias já mapeadas no v1.0):
   - "Cabeçalho" → **Mídia** (imagem/vídeo/documento — sem opção de texto duplicada).
   - "Corpo" → **Texto** (copy da mensagem).
@@ -262,7 +263,7 @@ Endpoints autenticados por token de serviço (não pelo login do usuário), usad
 Estes pontos ficaram em aberto na descrição recebida e precisam de confirmação antes (ou durante) do desenvolvimento:
 
 1. **Pagamento não bloqueia liberação** — confirmar se é isso mesmo, ou se a campanha só pode ser liberada após pagamento registrado.
-2. **Estrutura do "template padrão"** — o formato exato ainda será enviado; esta versão assume que é apenas um template pré-preenchido editável.
+2. ~~**Estrutura do "template padrão"**~~ — resolvido: não existe mais template editável por organização; o corpo da mensagem vem do catálogo de variações (`/catalogo-variacoes`, superadmin), ver seção 3.3.
 3. **Formato/canal de entrega da lista de contatos para o n8n no evento `campaign_released`** — enviar o CSV inteiro no payload ou uma URL assinada de download (recomendado para listas grandes, evitando payloads pesados de webhook).
 4. **Regra de priorização (Baixa/Média/Alta)** — ainda não documentada; precisa ser definida para saber se afeta ordem de fila no n8n ou é só informativa.
 5. **Escopo de credenciais Infobip no app** — confirmar se o app ainda armazena `infobip_configs` (para o n8n consumir) ou se as credenciais passam a viver só no n8n.

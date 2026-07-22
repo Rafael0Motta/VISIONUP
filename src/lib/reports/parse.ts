@@ -1,5 +1,7 @@
 import * as XLSX from "xlsx";
 
+export const MAX_REPORT_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB
+
 export type ParsedReport = {
   enviados: number;
   entregues: number;

@@ -2,8 +2,12 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { CAMPAIGN_STATUS_LABELS, CAMPAIGN_STATUS_TONE, resumeStepPath } from "@/lib/campaigns/status";
+import { deleteCampaignDraft } from "./actions";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { DeleteButton } from "@/components/delete-button";
+import { DownloadContactListButton } from "./download-contact-list-button";
+import { DownloadReportButton } from "./download-report-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -20,7 +24,9 @@ export default async function CampanhasPage({
 
   let query = supabase
     .from("campaigns")
-    .select("id, name, status, template_id, contact_list_id, rejection_reason, created_at, created_by")
+    .select(
+      "id, name, status, template_id, contact_list_id, rejection_reason, created_at, created_by, campaign_reports(origem, raw_file_path)"
+    )
     .order("created_at", { ascending: false });
 
   if (actor.role === "cliente") {
@@ -89,13 +95,30 @@ export default async function CampanhasPage({
                       {CAMPAIGN_STATUS_LABELS[c.status]}
                     </StatusBadge>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="flex justify-end gap-2 text-right">
+                    {c.contact_list_id ? <DownloadContactListButton campaignId={c.id} /> : null}
+                    {actor.role !== "admin" &&
+                    c.campaign_reports?.some(
+                      (r) => r.origem === "manual" && r.raw_file_path?.includes("/")
+                    ) ? (
+                      // raw_file_path sem "/" é relatório importado antes do
+                      // suporte a download (só guardava o nome do arquivo,
+                      // sem salvar o arquivo em si) — não tem link possível.
+                      <DownloadReportButton campaignId={c.id} />
+                    ) : null}
                     {actor.role !== "superadmin" && (c.status === "rascunho" || c.status === "rejeitado") ? (
                       <Button asChild size="sm" variant="outline">
                         <Link href={resumeStepPath(c)}>
                           {c.status === "rejeitado" ? "Editar e reenviar" : "Continuar"}
                         </Link>
                       </Button>
+                    ) : null}
+                    {actor.role !== "superadmin" && c.status === "rascunho" ? (
+                      <DeleteButton
+                        action={deleteCampaignDraft.bind(null, c.id)}
+                        confirmMessage={`Excluir o rascunho "${c.name}"? Essa ação não pode ser desfeita.`}
+                        successMessage="Rascunho excluído."
+                      />
                     ) : null}
                   </TableCell>
                 </TableRow>

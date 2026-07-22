@@ -87,6 +87,7 @@ export function WebhookConfigRow({
                 size="icon"
                 className="size-7"
                 onClick={() => setShowSecret((v) => !v)}
+                aria-label={showSecret ? "Ocultar segredo" : "Mostrar segredo"}
               >
                 {showSecret ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
               </Button>

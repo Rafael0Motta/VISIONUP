@@ -116,7 +116,7 @@ export async function releaseCampaign(campaignId: string) {
   const { data: campaign } = await supabase
     .from("campaigns")
     .select(
-      "organization_id, name, contact_list_id, template_id, scheduled_at, profile_customization, templates(name, media_type, media_path, body_text, footer_text, buttons, variables, use_variations)"
+      "organization_id, name, contact_list_id, template_id, scheduled_at, profile_customization, templates(name, media_type, media_path, body_text, footer_text, buttons, variables)"
     )
     .eq("id", campaignId)
     .eq("status", "aprovado")
@@ -164,7 +164,6 @@ export async function releaseCampaign(campaignId: string) {
     footer_text: string | null;
     buttons: unknown;
     variables: unknown;
-    use_variations: boolean;
   } | null;
 
   let templateMediaSignedUrl: string | null = null;
@@ -220,7 +219,6 @@ export async function releaseCampaign(campaignId: string) {
             footer_text: template.footer_text,
             buttons: template.buttons,
             variables: template.variables,
-            use_variations: template.use_variations,
           }
         : null,
       contact_list_signed_url: signedUrl,

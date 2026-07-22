@@ -21,8 +21,12 @@ export function VariationRow({
 
   function handleToggle() {
     startTransition(async () => {
-      await toggleVariationActive(id, isActive);
-      toast.success(isActive ? "Variação desativada." : "Variação ativada.");
+      try {
+        await toggleVariationActive(id);
+        toast.success(isActive ? "Variação desativada." : "Variação ativada.");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Não foi possível atualizar a variação.");
+      }
     });
   }
 

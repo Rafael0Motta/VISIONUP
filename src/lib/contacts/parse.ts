@@ -1,5 +1,7 @@
 import Papa from "papaparse";
 
+export const MAX_CONTACTS_CSV_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+
 export function normalizePhone(raw: string): string {
   return raw.replace(/\D/g, "");
 }
@@ -30,7 +32,12 @@ export type ParsedContacts = {
 };
 
 export function parseContactsCsv(csvText: string): ParsedContacts {
-  const result = Papa.parse<Record<string, string>>(csvText, {
+  // Excel salva "CSV UTF-8" com um BOM no início do arquivo — sem remover,
+  // o primeiro cabeçalho vira "﻿telefone" e nunca bate com
+  // PHONE_HEADERS, fazendo o upload falhar mesmo com o arquivo correto.
+  const normalizedText = csvText.charCodeAt(0) === 0xfeff ? csvText.slice(1) : csvText;
+
+  const result = Papa.parse<Record<string, string>>(normalizedText, {
     header: true,
     skipEmptyLines: true,
     transformHeader: (h) => h.trim().toLowerCase(),

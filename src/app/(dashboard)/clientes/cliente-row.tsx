@@ -52,6 +52,7 @@ export function ClienteRow({
               size="sm"
               variant="outline"
               onClick={() => setIsEditing(false)}
+              disabled={isPending}
             >
               Cancelar
             </Button>

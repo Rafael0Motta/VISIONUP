@@ -11,8 +11,12 @@ export function SweepButton() {
 
   function handleClick() {
     startTransition(async () => {
-      const result = await triggerWebhookSweep();
-      toast.success(`Sweep concluído: ${result.processed} entrega(s) processada(s).`);
+      try {
+        const result = await triggerWebhookSweep();
+        toast.success(`Sweep concluído: ${result.processed} entrega(s) processada(s).`);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Não foi possível processar a fila.");
+      }
     });
   }
 

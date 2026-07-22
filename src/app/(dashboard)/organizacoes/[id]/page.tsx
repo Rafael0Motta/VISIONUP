@@ -7,7 +7,7 @@ import { OrgAdminRow } from "../org-admin-row";
 import { CreateClienteForm } from "@/app/(dashboard)/clientes/create-cliente-form";
 import { ClienteRow } from "@/app/(dashboard)/clientes/cliente-row";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default async function OrganizacaoDetailPage({
   params,
@@ -89,9 +89,9 @@ export default async function OrganizacaoDetailPage({
               ))}
               {(admins ?? []).length === 0 ? (
                 <TableRow>
-                  <td colSpan={3} className="p-4 text-center text-muted-foreground">
+                  <TableCell colSpan={3} className="text-center text-muted-foreground">
                     Nenhum administrador vinculado.
-                  </td>
+                  </TableCell>
                 </TableRow>
               ) : null}
             </TableBody>
@@ -138,9 +138,9 @@ export default async function OrganizacaoDetailPage({
               ))}
               {(clientes ?? []).length === 0 ? (
                 <TableRow>
-                  <td colSpan={3} className="p-4 text-center text-muted-foreground">
+                  <TableCell colSpan={3} className="text-center text-muted-foreground">
                     Nenhum cliente vinculado.
-                  </td>
+                  </TableCell>
                 </TableRow>
               ) : null}
             </TableBody>

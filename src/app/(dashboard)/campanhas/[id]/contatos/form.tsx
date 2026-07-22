@@ -9,7 +9,20 @@ import { Label } from "@/components/ui/label";
 
 const initialState: CampaignFormState = { error: null };
 
-export function ContatosForm({ campaignId }: { campaignId: string }) {
+type ExistingList = {
+  file_name: string | null;
+  total_contacts: number;
+  valid_contacts: number;
+  invalid_contacts: number;
+} | null;
+
+export function ContatosForm({
+  campaignId,
+  existingList,
+}: {
+  campaignId: string;
+  existingList: ExistingList;
+}) {
   const [state, formAction, isPending] = useActionState(
     uploadCampaignContacts.bind(null, campaignId),
     initialState
@@ -18,8 +31,22 @@ export function ContatosForm({ campaignId }: { campaignId: string }) {
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
+      {existingList ? (
+        <div className="rounded-md border p-3 text-sm">
+          <p className="font-medium">Lista já enviada: {existingList.file_name ?? "arquivo"}</p>
+          <p className="text-muted-foreground">
+            {existingList.total_contacts} contato{existingList.total_contacts === 1 ? "" : "s"} (
+            {existingList.valid_contacts} válido{existingList.valid_contacts === 1 ? "" : "s"}
+            {existingList.invalid_contacts > 0
+              ? `, ${existingList.invalid_contacts} inválido${existingList.invalid_contacts === 1 ? "" : "s"}`
+              : ""}
+            )
+          </p>
+        </div>
+      ) : null}
+
       <div className="flex flex-col gap-2">
-        <Label htmlFor="file">Arquivo CSV</Label>
+        <Label htmlFor="file">{existingList ? "Enviar nova lista (substitui a atual)" : "Arquivo CSV"}</Label>
         <Input id="file" name="file" type="file" accept=".csv,text/csv" required disabled={isPending} />
         <p className="text-xs text-muted-foreground">
           Precisa de uma coluna de telefone (telefone, phone, celular ou whatsapp). Nome e

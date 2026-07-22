@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CreateClienteForm } from "./create-cliente-form";
 import { ClienteRow } from "./cliente-row";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default async function ClientesPage() {
   const actor = await requireRole(["admin"]);
@@ -73,9 +73,9 @@ export default async function ClientesPage() {
               ))}
               {(clientes ?? []).length === 0 ? (
                 <TableRow>
-                  <td colSpan={4} className="p-4 text-center text-muted-foreground">
+                  <TableCell colSpan={4} className="text-center text-muted-foreground">
                     Nenhum cliente cadastrado.
-                  </td>
+                  </TableCell>
                 </TableRow>
               ) : null}
             </TableBody>

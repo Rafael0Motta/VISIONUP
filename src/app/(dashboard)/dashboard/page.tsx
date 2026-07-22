@@ -5,6 +5,8 @@ import { StatTile } from "@/components/stat-tile";
 import { StatusBadge } from "@/components/status-badge";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { DashboardFilters } from "./dashboard-filters";
+import { DownloadContactListButton } from "@/app/(dashboard)/campanhas/download-contact-list-button";
+import { DownloadReportButton } from "@/app/(dashboard)/campanhas/download-report-button";
 import {
   CAMPAIGN_STATUS_LABELS,
   CAMPAIGN_STATUS_TONE,
@@ -305,6 +307,33 @@ export default async function DashboardPage({
       .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   }
 
+  // ---- campanha selecionada via filtro (pra oferecer download direto) ----
+  let selectedCampaign: {
+    id: string;
+    name: string;
+    status: CampaignStatus;
+    contactListId: string | null;
+    hasDownloadableReport: boolean;
+  } | null = null;
+  if (params.campaignId) {
+    const { data: sc } = await supabase
+      .from("campaigns")
+      .select("id, name, status, contact_list_id, campaign_reports(origem, raw_file_path)")
+      .eq("id", params.campaignId)
+      .maybeSingle();
+    if (sc) {
+      selectedCampaign = {
+        id: sc.id,
+        name: sc.name,
+        status: sc.status,
+        contactListId: sc.contact_list_id,
+        hasDownloadableReport: (sc.campaign_reports ?? []).some(
+          (r) => r.origem === "manual" && r.raw_file_path?.includes("/")
+        ),
+      };
+    }
+  }
+
   const baseFilterParams = {
     from: params.from,
     to: params.to,
@@ -376,6 +405,33 @@ export default async function DashboardPage({
               />
             ))}
           </div>
+
+          {selectedCampaign ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Campanha selecionada</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-wrap items-center gap-3">
+                <div className="flex-1">
+                  <p className="font-medium">{selectedCampaign.name}</p>
+                  <StatusBadge tone={CAMPAIGN_STATUS_TONE[selectedCampaign.status]}>
+                    {CAMPAIGN_STATUS_LABELS[selectedCampaign.status]}
+                  </StatusBadge>
+                </div>
+                {selectedCampaign.contactListId ? (
+                  <DownloadContactListButton campaignId={selectedCampaign.id} />
+                ) : null}
+                {!isAdmin && selectedCampaign.hasDownloadableReport ? (
+                  <DownloadReportButton campaignId={selectedCampaign.id} />
+                ) : null}
+                {!selectedCampaign.contactListId && !selectedCampaign.hasDownloadableReport ? (
+                  <p className="text-sm text-muted-foreground">
+                    Ainda não há planilha de contatos nem relatório disponível pra essa campanha.
+                  </p>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
 
           {detailStatus ? (
             <Card>

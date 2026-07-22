@@ -2,7 +2,7 @@ import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { ReportRow } from "./report-row";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export type CampaignReport = {
   id: string;
@@ -66,9 +66,9 @@ export default async function RelatoriosPage() {
               ))}
               {(campaigns ?? []).length === 0 ? (
                 <TableRow>
-                  <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
                     Nenhuma campanha liberada ainda.
-                  </td>
+                  </TableCell>
                 </TableRow>
               ) : null}
             </TableBody>

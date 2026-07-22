@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CreateVariationForm } from "./create-variation-form";
 import { VariationRow } from "./variation-row";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default async function CatalogoVariacoesPage() {
   await requireRole(["superadmin"]);
@@ -47,6 +47,13 @@ export default async function CatalogoVariacoesPage() {
                   isActive={variation.is_active}
                 />
               ))}
+              {(variations ?? []).length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center text-muted-foreground">
+                    Nenhuma variação cadastrada.
+                  </TableCell>
+                </TableRow>
+              ) : null}
             </TableBody>
           </Table>
         </CardContent>

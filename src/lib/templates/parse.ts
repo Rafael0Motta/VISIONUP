@@ -23,6 +23,16 @@ export const MAX_BUTTONS = 3;
 
 export const DEFAULT_OPT_OUT_FOOTER = 'Digite "sair" para não receber mais.';
 
+// Dica de preenchimento por índice de variável — vale pra qualquer variação
+// do catálogo, já que o {{N}} tem o mesmo sentido (nome, assunto, prazo/valor,
+// ação) em todas elas.
+export const VARIABLE_PLACEHOLDER_HINTS: Record<number, string> = {
+  1: "Nome do cliente",
+  2: "Boleto nº 45871 / Fatura de julho / Parcela 3/12",
+  3: "Vencimento: 25/07 • Valor: R$ 187,90",
+  4: "visualizar a cobrança / emitir 2ª via / acompanhar o pagamento",
+};
+
 // Limites reais de mídia da WhatsApp Business API.
 export const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 export const MAX_VIDEO_SIZE_BYTES = 16 * 1024 * 1024; // 16MB
@@ -53,6 +63,11 @@ export function validateVariablesFilled(variables: TemplateVariable[]): string |
   return `Preencha o exemplo da${missing.length > 1 ? "s" : ""} variável${missing.length > 1 ? "eis" : ""} ${missing
     .map((i) => `{{${i}}}`)
     .join(", ")} antes de salvar.`;
+}
+
+export function pickRandom(pool: string[], exclude?: string): string {
+  const options = pool.length > 1 ? pool.filter((p) => p !== exclude) : pool;
+  return options[Math.floor(Math.random() * options.length)] ?? pool[0] ?? "";
 }
 
 export function buildButtons(formData: FormData): TemplateButton[] {

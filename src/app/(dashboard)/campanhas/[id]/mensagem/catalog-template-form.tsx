@@ -1,25 +1,26 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { createTemplate, updateTemplate, type TemplateFormState } from "./actions";
+import { saveTemplateForCampaign, type TemplateFormState } from "../../actions";
 import { useActionToast } from "@/lib/use-action-toast";
 import {
   extractVariableIndexes,
+  pickRandom,
   BUTTON_TYPES,
   BUTTON_TYPE_LABELS,
   MAX_BUTTONS,
   MAX_IMAGE_SIZE_BYTES,
   MAX_VIDEO_SIZE_BYTES,
+  VARIABLE_PLACEHOLDER_HINTS,
   type TemplateButton,
   type TemplateVariable,
 } from "@/lib/templates/parse";
 import { WhatsAppPreview } from "@/components/whatsapp-preview";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Shuffle, X } from "lucide-react";
+import { Shuffle, Plus, X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -31,7 +32,7 @@ import {
 const initialState: TemplateFormState = { error: null };
 
 const MEDIA_TYPE_OPTIONS: { value: "none" | "image" | "video"; label: string }[] = [
-  { value: "none", label: "Texto" },
+  { value: "none", label: "Sem mídia" },
   { value: "image", label: "Imagem" },
   { value: "video", label: "Vídeo" },
 ];
@@ -53,85 +54,81 @@ function slotsFromButtons(buttons: TemplateButton[]): ButtonSlot[] {
     .map((btn) => ({ type: btn.type, label: btn.label, value: btn.value ?? "" }));
 }
 
-function pickRandom(pool: string[], exclude?: string): string {
-  const options = pool.length > 1 ? pool.filter((p) => p !== exclude) : pool;
-  return options[Math.floor(Math.random() * options.length)] ?? pool[0] ?? "";
+function HighlightedBody({ bodyText }: { bodyText: string }) {
+  const parts = bodyText.split(/(\{\{\d+\}\})/g);
+  return (
+    <p className="whitespace-pre-line text-sm leading-relaxed">
+      {parts.map((part, i) =>
+        /^\{\{\d+\}\}$/.test(part) ? (
+          <span
+            key={i}
+            className="mx-0.5 inline-block rounded bg-primary/15 px-1.5 py-0.5 font-mono text-xs font-semibold text-primary"
+          >
+            {part}
+          </span>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </p>
+  );
 }
 
-export type TemplateFormInitialValues = {
-  name: string;
-  media_type: string;
+export type CatalogVariation = { id: string; content: string };
+
+export type CatalogTemplateInitial = {
   body_text: string;
+  media_type: "none" | "image" | "video" | "text";
+  mediaUrl: string | null;
   footer_text: string | null;
-  variables: TemplateVariable[];
   buttons: TemplateButton[];
-  use_variations: boolean;
-  is_default: boolean;
+  variables: TemplateVariable[];
 };
 
-export function TemplateForm({
-  mode,
-  templateId,
-  actorRole,
-  initialValues,
-  activeVariationsCount,
+export function CatalogTemplateForm({
+  campaignId,
+  existingTemplateId,
   variationPool,
-  action,
-  submitLabel,
+  initial,
   defaultFooterText,
-  hideUseVariations,
-  existingMediaUrl,
 }: {
-  mode: "create" | "edit";
-  templateId?: string;
-  actorRole: "admin" | "cliente";
-  initialValues?: TemplateFormInitialValues;
-  activeVariationsCount: number;
-  /** Catálogo de textos do "Variar Texto" — usado pra pré-preencher aleatoriamente na criação. */
-  variationPool?: string[];
-  /** Server action já vinculada (bind) pelo chamador. Default: createTemplate/updateTemplate. */
-  action?: (prevState: TemplateFormState, formData: FormData) => Promise<TemplateFormState>;
-  submitLabel?: string;
-  /** Pré-preenche o rodapé na criação — continua editável. */
+  campaignId: string;
+  existingTemplateId: string | null;
+  variationPool: CatalogVariation[];
+  initial: CatalogTemplateInitial | null;
   defaultFooterText?: string;
-  /** Esconde o toggle "Variar texto" (catálogo de rotação por envio). */
-  hideUseVariations?: boolean;
-  /** URL assinada da mídia já salva (modo edição). */
-  existingMediaUrl?: string | null;
 }) {
-  const resolvedAction =
-    action ?? (mode === "create" ? createTemplate : updateTemplate.bind(null, templateId!));
+  const resolvedAction = saveTemplateForCampaign.bind(null, campaignId, existingTemplateId);
   const [state, formAction, isPending] = useActionState(resolvedAction, initialState);
-  useActionToast(state, isPending, mode === "edit" ? "Template atualizado." : null);
+  useActionToast(state, isPending, null);
 
-  const [bodyText, setBodyText] = useState(() => {
-    if (initialValues?.body_text) return initialValues.body_text;
-    if (variationPool && variationPool.length > 0) return pickRandom(variationPool);
-    return "";
+  const [selected, setSelected] = useState<CatalogVariation | null>(() => {
+    if (initial) return null;
+    if (variationPool.length === 0) return null;
+    const content = pickRandom(variationPool.map((v) => v.content));
+    return variationPool.find((v) => v.content === content) ?? variationPool[0];
   });
+  const currentBodyText = selected?.content ?? initial?.body_text ?? "";
+
   const [mediaType, setMediaType] = useState<"none" | "image" | "video">(
-    initialValues?.media_type === "image" || initialValues?.media_type === "video"
-      ? initialValues.media_type
-      : "none"
+    initial?.media_type === "image" || initial?.media_type === "video" ? initial.media_type : "none"
   );
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [footerTextState, setFooterTextState] = useState(
-    initialValues?.footer_text ?? defaultFooterText ?? ""
+    initial?.footer_text ?? defaultFooterText ?? ""
   );
-  const [slots, setSlots] = useState<ButtonSlot[]>(
-    slotsFromButtons(initialValues?.buttons ?? [])
-  );
-  const [variableExamples, setVariableExamples] = useState<Record<number, string>>(
-    Object.fromEntries((initialValues?.variables ?? []).map((v) => [v.index, v.example]))
+  const [slots, setSlots] = useState<ButtonSlot[]>(slotsFromButtons(initial?.buttons ?? []));
+  const [variableExamples, setVariableExamples] = useState<Record<number, string>>(() =>
+    Object.fromEntries((initial?.variables ?? []).map((v) => [v.index, v.example]))
   );
 
-  const variableIndexes = extractVariableIndexes(bodyText);
+  const variableIndexes = extractVariableIndexes(currentBodyText);
 
   const previewMediaUrl = useMemo(() => {
     if (mediaFile) return URL.createObjectURL(mediaFile);
-    return existingMediaUrl ?? undefined;
-  }, [mediaFile, existingMediaUrl]);
+    return initial?.mediaUrl ?? undefined;
+  }, [mediaFile, initial?.mediaUrl]);
 
   function handleMediaFileChange(file: File | null) {
     setMediaError(null);
@@ -148,6 +145,14 @@ export function TemplateForm({
     setMediaFile(file);
   }
 
+  function handleShuffle() {
+    if (variationPool.length === 0) return;
+    const content = pickRandom(variationPool.map((v) => v.content), currentBodyText);
+    const next = variationPool.find((v) => v.content === content) ?? variationPool[0];
+    setSelected(next);
+    setVariableExamples({});
+  }
+
   function addSlot() {
     setSlots((prev) =>
       prev.length < MAX_BUTTONS ? [...prev, { type: "quick_reply", label: "", value: "" }] : prev
@@ -162,53 +167,102 @@ export function TemplateForm({
     setSlots((prev) => prev.map((slot, idx) => (idx === i ? { ...slot, ...patch } : slot)));
   }
 
-  function handleShuffleTemplate() {
-    if (!variationPool || variationPool.length === 0) return;
-    setBodyText((current) => pickRandom(variationPool, current));
-  }
-
   const previewButtons: TemplateButton[] = slots
     .filter((s) => s.label)
     .map((s) => ({ type: s.type, label: s.label, value: s.value }));
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
-      <form action={formAction} className="flex flex-col gap-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="name">Nome do template</Label>
-            <Input
-              id="name"
-              name="name"
-              placeholder="ex: promo_black_friday"
-              defaultValue={initialValues?.name}
-              required
-              disabled={isPending}
-            />
+    <form action={formAction} className="grid gap-8 lg:grid-cols-[1fr_320px]">
+      {selected ? <input type="hidden" name="variation_id" value={selected.id} /> : null}
+
+      <div className="flex flex-col gap-5">
+        <Card className="bg-muted/30">
+          <CardContent className="flex flex-col gap-2 py-4 text-sm">
+            <p className="font-medium">Como preencher</p>
+            <ol className="list-decimal space-y-1 pl-4 text-muted-foreground">
+              <li>
+                O texto abaixo é um dos modelos já aprovados do catálogo — não pode ser digitado,
+                só trocado pelo botão &quot;Variar template&quot;.
+              </li>
+              <li>Preencha cada campo destacado com a informação real da sua campanha.</li>
+              <li>Se quiser, anexe uma imagem ou vídeo pra essa campanha.</li>
+              <li>Acompanhe a prévia da mensagem completa ao lado.</li>
+              <li>Clique em &quot;Avançar&quot; quando terminar.</li>
+            </ol>
+          </CardContent>
+        </Card>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <Label>Texto do template (fixo)</Label>
+            {variationPool.length > 1 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleShuffle}
+                disabled={isPending}
+                className="h-7 gap-1 text-xs text-muted-foreground"
+              >
+                <Shuffle className="size-3.5" />
+                Variar template
+              </Button>
+            ) : null}
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="media_type">Mídia</Label>
-            <Select
-              name="media_type"
-              value={mediaType}
-              onValueChange={(value) => {
-                setMediaType(value as typeof mediaType);
-                setMediaFile(null);
-                setMediaError(null);
-              }}
-            >
-              <SelectTrigger id="media_type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {MEDIA_TYPE_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="rounded-md border bg-muted/20 p-3">
+            <HighlightedBody bodyText={currentBodyText} />
           </div>
+        </div>
+
+        {variableIndexes.length > 0 ? (
+          <div className="flex flex-col gap-3 rounded-md border p-3">
+            <p className="text-sm font-medium">
+              Variáveis da sua campanha <span className="font-normal text-destructive">(obrigatório)</span>
+            </p>
+            {variableIndexes.map((index) => (
+              <div key={index} className="flex items-center gap-3">
+                <span className="w-12 shrink-0 rounded bg-muted px-2 py-1 text-center font-mono text-xs">
+                  {`{{${index}}}`}
+                </span>
+                <Input
+                  name={`variable_example_${index}`}
+                  placeholder={VARIABLE_PLACEHOLDER_HINTS[index] ?? "Informação da sua campanha"}
+                  value={variableExamples[index] ?? ""}
+                  onChange={(e) =>
+                    setVariableExamples((prev) => ({ ...prev, [index]: e.target.value }))
+                  }
+                  required
+                  disabled={isPending}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Esse template não tem variáveis.</p>
+        )}
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="media_type">Mídia (opcional)</Label>
+          <Select
+            name="media_type"
+            value={mediaType}
+            onValueChange={(value) => {
+              setMediaType(value as typeof mediaType);
+              setMediaFile(null);
+              setMediaError(null);
+            }}
+          >
+            <SelectTrigger id="media_type">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MEDIA_TYPE_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {mediaType === "image" || mediaType === "video" ? (
@@ -226,73 +280,11 @@ export function TemplateForm({
               disabled={isPending}
             />
             {mediaError ? <p className="text-xs text-destructive">{mediaError}</p> : null}
-            {!mediaFile && existingMediaUrl ? (
+            {!mediaFile && initial?.mediaUrl ? (
               <p className="text-xs text-muted-foreground">
                 Já existe um arquivo salvo. Envie um novo pra substituir.
               </p>
             ) : null}
-          </div>
-        ) : null}
-
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="body_text">Texto</Label>
-            {variationPool && variationPool.length > 0 ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleShuffleTemplate}
-                disabled={isPending}
-                className="h-7 gap-1 text-xs text-muted-foreground"
-              >
-                <Shuffle className="size-3.5" />
-                Variar template
-              </Button>
-            ) : null}
-          </div>
-          <Textarea
-            id="body_text"
-            name="body_text"
-            rows={6}
-            maxLength={1024}
-            value={bodyText}
-            onChange={(e) => setBodyText(e.target.value)}
-            placeholder={"Opa {{1}}! Temos novidade: {{2}}."}
-            required
-            disabled={isPending}
-          />
-          <p className="text-xs text-muted-foreground">
-            Use {"{{1}}"}, {"{{2}}"}... para variáveis. {bodyText.length}/1024
-          </p>
-        </div>
-
-        {variableIndexes.length > 0 ? (
-          <div className="flex flex-col gap-3 rounded-md border p-3">
-            <p className="text-sm font-medium">
-              Exemplos das variáveis <span className="font-normal text-destructive">(obrigatório)</span>
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Toda variável usada no texto precisa de um exemplo preenchido — sem isso a campanha não
-              pode ser enviada para aprovação.
-            </p>
-            {variableIndexes.map((index) => (
-              <div key={index} className="flex items-center gap-3">
-                <span className="w-12 shrink-0 rounded bg-muted px-2 py-1 text-center font-mono text-xs">
-                  {`{{${index}}}`}
-                </span>
-                <Input
-                  name={`variable_example_${index}`}
-                  placeholder="Valor de exemplo"
-                  value={variableExamples[index] ?? ""}
-                  onChange={(e) =>
-                    setVariableExamples((prev) => ({ ...prev, [index]: e.target.value }))
-                  }
-                  required
-                  disabled={isPending}
-                />
-              </div>
-            ))}
           </div>
         ) : null}
 
@@ -365,6 +357,7 @@ export function TemplateForm({
                 onClick={() => removeSlot(i)}
                 disabled={isPending}
                 className="size-8"
+                aria-label="Remover botão"
               >
                 <X className="size-4" />
               </Button>
@@ -376,55 +369,24 @@ export function TemplateForm({
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-3">
-          {!hideUseVariations ? (
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="use_variations"
-                name="use_variations"
-                defaultChecked={initialValues?.use_variations}
-                disabled={isPending}
-              />
-              <Label htmlFor="use_variations" className="font-normal">
-                Variar texto ({activeVariationsCount} variações disponíveis no catálogo)
-              </Label>
-            </div>
-          ) : null}
-
-          {actorRole === "admin" ? (
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="is_default"
-                name="is_default"
-                defaultChecked={initialValues?.is_default}
-                disabled={isPending}
-              />
-              <Label htmlFor="is_default" className="font-normal">
-                Marcar como template padrão da organização
-              </Label>
-            </div>
-          ) : null}
-        </div>
-
         {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
 
         <Button type="submit" disabled={isPending || !!mediaError} className="w-fit">
-          {isPending
-            ? "Salvando..."
-            : submitLabel ?? (mode === "create" ? "Criar template" : "Salvar alterações")}
+          {isPending ? "Salvando..." : "Avançar"}
         </Button>
-      </form>
+      </div>
 
       <div className="lg:sticky lg:top-6 lg:self-start">
         <WhatsAppPreview
           mediaType={mediaType}
           mediaUrl={previewMediaUrl}
-          bodyText={bodyText}
+          bodyText={currentBodyText}
           footerText={footerTextState}
           buttons={previewButtons}
           variableValues={variableExamples}
+          title="Prévia da mensagem"
         />
       </div>
-    </div>
+    </form>
   );
 }

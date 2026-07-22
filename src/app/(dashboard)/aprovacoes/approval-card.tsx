@@ -29,52 +29,99 @@ const CAMPAIGN_STATUS_LABEL: Record<string, string> = {
 
 const rejectInitialState: ApprovalFormState = { error: null };
 
-function formatDate(iso: string | null) {
-  if (!iso) return "Envio imediato";
-  return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+function ConfirmActionButton({
+  campaignId,
+  action,
+  triggerLabel,
+  pendingLabel,
+  confirmTitle,
+  confirmDescription,
+  confirmLabel,
+  successMessage,
+  errorFallback,
+  variant,
+}: {
+  campaignId: string;
+  action: (campaignId: string) => Promise<void>;
+  triggerLabel: string;
+  pendingLabel: string;
+  confirmTitle: string;
+  confirmDescription: string;
+  confirmLabel: string;
+  successMessage: string;
+  errorFallback: string;
+  variant?: "default" | "destructive";
+}) {
+  const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  function handleConfirm() {
+    startTransition(async () => {
+      try {
+        await action(campaignId);
+        toast.success(successMessage);
+        setOpen(false);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : errorFallback);
+      }
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button type="button" variant={variant}>
+          {triggerLabel}
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{confirmTitle}</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">{confirmDescription}</p>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
+            Cancelar
+          </Button>
+          <Button type="button" variant={variant} onClick={handleConfirm} disabled={isPending}>
+            {isPending ? pendingLabel : confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function ApproveButton({ campaignId }: { campaignId: string }) {
-  const [isPending, startTransition] = useTransition();
   return (
-    <Button
-      type="button"
-      disabled={isPending}
-      onClick={() =>
-        startTransition(async () => {
-          try {
-            await approveCampaign(campaignId);
-            toast.success("Campanha aprovada.");
-          } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Não foi possível aprovar.");
-          }
-        })
-      }
-    >
-      {isPending ? "Aprovando..." : "Aprovar"}
-    </Button>
+    <ConfirmActionButton
+      campaignId={campaignId}
+      action={approveCampaign}
+      triggerLabel="Aprovar"
+      pendingLabel="Aprovando..."
+      confirmTitle="Aprovar campanha?"
+      confirmDescription="A campanha fica liberada para o pagamento/liberação seguirem o fluxo normal. Essa ação não pode ser desfeita por aqui."
+      confirmLabel="Confirmar aprovação"
+      successMessage="Campanha aprovada."
+      errorFallback="Não foi possível aprovar."
+    />
   );
 }
 
 function ReleaseButton({ campaignId }: { campaignId: string }) {
-  const [isPending, startTransition] = useTransition();
   return (
-    <Button
-      type="button"
-      disabled={isPending}
-      onClick={() =>
-        startTransition(async () => {
-          try {
-            await releaseCampaign(campaignId);
-            toast.success("Campanha liberada.");
-          } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Não foi possível liberar.");
-          }
-        })
-      }
-    >
-      {isPending ? "Liberando..." : "Liberar campanha"}
-    </Button>
+    <ConfirmActionButton
+      campaignId={campaignId}
+      action={releaseCampaign}
+      triggerLabel="Liberar campanha"
+      pendingLabel="Liberando..."
+      confirmTitle="Liberar campanha para disparo?"
+      confirmDescription="Isso aciona o envio real das mensagens via n8n/Infobip para toda a lista de contatos. Não pode ser desfeito."
+      confirmLabel="Confirmar liberação"
+      successMessage="Campanha liberada."
+      errorFallback="Não foi possível liberar."
+      variant="destructive"
+    />
   );
 }
 
@@ -145,7 +192,7 @@ export function ApprovalCard({
           <div>
             <p className="font-medium">{campaign.name}</p>
             <p className="text-xs text-muted-foreground">
-              Por: {campaign.creator?.full_name ?? "—"} · Agendado: {formatDate(campaign.scheduled_at)}
+              Por: {campaign.creator?.full_name ?? "—"}
             </p>
           </div>
           <StatusBadge

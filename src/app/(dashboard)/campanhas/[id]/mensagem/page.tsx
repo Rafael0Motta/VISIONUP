@@ -2,17 +2,19 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { WizardSteps } from "../../wizard-steps";
-import { createTemplateForCampaign, updateTemplateForCampaignStep } from "../../actions";
-import { TemplateForm, type TemplateFormInitialValues } from "@/app/(dashboard)/templates/template-form";
+import { WizardBackLink } from "../../wizard-back-link";
+import { CatalogTemplateForm, type CatalogTemplateInitial } from "./catalog-template-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DEFAULT_OPT_OUT_FOOTER, type TemplateButton, type TemplateVariable } from "@/lib/templates/parse";
+
+const SIGNED_URL_TTL_SECONDS = 60 * 60;
 
 export default async function MensagemPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const actor = await requireRole(["admin", "cliente"]);
+  await requireRole(["admin", "cliente"]);
   const { id } = await params;
   const supabase = await createClient();
 
@@ -28,38 +30,35 @@ export default async function MensagemPage({
 
   const { data: variations } = await supabase
     .from("message_variations")
-    .select("content")
+    .select("id, content")
     .eq("is_active", true);
 
-  const variationPool = (variations ?? []).map((v) => v.content);
+  const variationPool = variations ?? [];
 
-  let initialValues: TemplateFormInitialValues | undefined;
-  let existingMediaUrl: string | null = null;
+  let initial: CatalogTemplateInitial | null = null;
   if (campaign.template_id) {
     const { data: template } = await supabase
       .from("templates")
-      .select("*")
+      .select("body_text, media_type, media_path, footer_text, buttons, variables")
       .eq("id", campaign.template_id)
-      .single();
+      .maybeSingle();
 
     if (template) {
-      initialValues = {
-        name: template.name,
-        media_type: template.media_type,
-        body_text: template.body_text,
-        footer_text: template.footer_text,
-        variables: (template.variables as unknown as TemplateVariable[]) ?? [],
-        buttons: (template.buttons as unknown as TemplateButton[]) ?? [],
-        use_variations: template.use_variations,
-        is_default: template.is_default,
-      };
-
+      let mediaUrl: string | null = null;
       if (template.media_path) {
         const { data: signed } = await supabase.storage
           .from("template-media")
-          .createSignedUrl(template.media_path, 60 * 60);
-        existingMediaUrl = signed?.signedUrl ?? null;
+          .createSignedUrl(template.media_path, SIGNED_URL_TTL_SECONDS);
+        mediaUrl = signed?.signedUrl ?? null;
       }
+      initial = {
+        body_text: template.body_text,
+        media_type: template.media_type,
+        mediaUrl,
+        footer_text: template.footer_text,
+        buttons: (template.buttons as unknown as TemplateButton[]) ?? [],
+        variables: (template.variables as unknown as TemplateVariable[]) ?? [],
+      };
     }
   }
 
@@ -72,28 +71,27 @@ export default async function MensagemPage({
         </p>
       </div>
       <WizardSteps current={2} />
+      <WizardBackLink href="/campanhas" />
 
       <Card className="max-w-4xl">
         <CardHeader>
-          <CardTitle>{initialValues ? "Editar template" : "Novo template"}</CardTitle>
+          <CardTitle>Mensagem da campanha</CardTitle>
         </CardHeader>
         <CardContent>
-          <TemplateForm
-            mode={initialValues ? "edit" : "create"}
-            actorRole={actor.role as "admin" | "cliente"}
-            activeVariationsCount={variationPool.length}
-            variationPool={!initialValues ? variationPool : undefined}
-            initialValues={initialValues}
-            submitLabel="Avançar"
-            defaultFooterText={DEFAULT_OPT_OUT_FOOTER}
-            existingMediaUrl={existingMediaUrl}
-            hideUseVariations
-            action={
-              initialValues
-                ? updateTemplateForCampaignStep.bind(null, campaign.id, campaign.template_id!)
-                : createTemplateForCampaign.bind(null, campaign.id)
-            }
-          />
+          {variationPool.length === 0 && !initial ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhuma variação de mensagem está disponível no catálogo. Peça para o suporte
+              cadastrar uma em <strong>Catálogo de Variações</strong> antes de continuar.
+            </p>
+          ) : (
+            <CatalogTemplateForm
+              campaignId={campaign.id}
+              existingTemplateId={campaign.template_id}
+              variationPool={variationPool}
+              initial={initial}
+              defaultFooterText={DEFAULT_OPT_OUT_FOOTER}
+            />
+          )}
         </CardContent>
       </Card>
     </div>

@@ -1,5 +1,6 @@
 import "server-only";
 import type { NextRequest } from "next/server";
+import { timingSafeEqualString } from "@/lib/security/timing-safe-equal";
 
 /**
  * Autenticação dos callbacks do n8n — token de serviço dedicado, nunca a
@@ -10,5 +11,6 @@ export function verifyN8nServiceToken(request: NextRequest): boolean {
   if (!expected) return false;
 
   const auth = request.headers.get("authorization");
-  return auth === `Bearer ${expected}`;
+  if (!auth) return false;
+  return timingSafeEqualString(auth, `Bearer ${expected}`);
 }

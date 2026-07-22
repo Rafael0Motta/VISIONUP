@@ -25,8 +25,8 @@ export function DisplayNameForm({
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <Label>Nome real (interno)</Label>
-        <Input value={realName} disabled />
+        <Label htmlFor="real_name">Nome real (interno)</Label>
+        <Input id="real_name" value={realName} disabled />
         <p className="text-xs text-muted-foreground">
           Esse é o nome da sua organização no sistema — não muda. Todos os seus clientes
           continuam vinculados a ele internamente.
