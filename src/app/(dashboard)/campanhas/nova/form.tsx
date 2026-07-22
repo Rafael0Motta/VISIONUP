@@ -10,7 +10,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 const initialState: CampaignFormState = { error: null };
 
-export function NovaCampanhaForm() {
+export function NovaCampanhaForm({
+  profileCustomizationEnabled,
+}: {
+  profileCustomizationEnabled: boolean;
+}) {
   const [state, formAction, isPending] = useActionState(createCampaignDraft, initialState);
   useActionToast(state, isPending, null);
   const [profileEnabled, setProfileEnabled] = useState(false);
@@ -22,20 +26,22 @@ export function NovaCampanhaForm() {
         <Input id="name" name="name" placeholder="Ex: Campanha Black Friday 2026" required disabled={isPending} />
       </div>
 
-      <div className="flex items-center gap-2">
-        <Checkbox
-          id="profile_enabled"
-          name="profile_enabled"
-          checked={profileEnabled}
-          onCheckedChange={(checked) => setProfileEnabled(checked === true)}
-          disabled={isPending}
-        />
-        <Label htmlFor="profile_enabled" className="font-normal">
-          Personalizar perfil do WhatsApp usado nesta campanha
-        </Label>
-      </div>
+      {profileCustomizationEnabled ? (
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="profile_enabled"
+            name="profile_enabled"
+            checked={profileEnabled}
+            onCheckedChange={(checked) => setProfileEnabled(checked === true)}
+            disabled={isPending}
+          />
+          <Label htmlFor="profile_enabled" className="font-normal">
+            Personalizar perfil do WhatsApp usado nesta campanha
+          </Label>
+        </div>
+      ) : null}
 
-      {profileEnabled ? (
+      {profileCustomizationEnabled && profileEnabled ? (
         <div className="flex flex-col gap-3 rounded-md border p-3">
           <div className="flex flex-col gap-2">
             <Label htmlFor="display_name">Nome de exibição</Label>

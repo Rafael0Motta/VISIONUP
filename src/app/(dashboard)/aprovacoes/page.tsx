@@ -25,6 +25,7 @@ export type ApprovalCampaign = {
     footer_text: string | null;
     buttons: TemplateButton[];
     variables: TemplateVariable[];
+    text_overridden: boolean;
   } | null;
   contact_list: {
     total_contacts: number;
@@ -41,7 +42,7 @@ async function fetchCampaigns(
   let query = supabase
     .from("campaigns")
     .select(
-      "id, name, status, scheduled_at, rejection_reason, profile_customization, creator:profiles!campaigns_created_by_fkey(full_name), template:templates(media_type, media_path, body_text, footer_text, buttons, variables), contact_list:contact_lists!campaigns_contact_list_id_fkey(total_contacts, valid_contacts, invalid_contacts)"
+      "id, name, status, scheduled_at, rejection_reason, profile_customization, creator:profiles!campaigns_created_by_fkey(full_name), template:templates(media_type, media_path, body_text, footer_text, buttons, variables, text_overridden), contact_list:contact_lists!campaigns_contact_list_id_fkey(total_contacts, valid_contacts, invalid_contacts)"
     )
     .eq("status", status)
     .order("created_at", { ascending: true });

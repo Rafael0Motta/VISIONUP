@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { CreateVariationForm } from "./create-variation-form";
+import { VariationForm } from "./variation-form";
 import { VariationRow } from "./variation-row";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,17 +11,17 @@ export default async function CatalogoVariacoesPage() {
 
   const { data: variations } = await supabase
     .from("message_variations")
-    .select("id, content, is_active")
+    .select("id, content, is_active, media_type")
     .order("created_at");
 
   return (
     <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Nova variação de texto</CardTitle>
+          <CardTitle>Novo template do catálogo</CardTitle>
         </CardHeader>
         <CardContent>
-          <CreateVariationForm />
+          <VariationForm mode="create" />
         </CardContent>
       </Card>
 
@@ -45,6 +45,7 @@ export default async function CatalogoVariacoesPage() {
                   id={variation.id}
                   content={variation.content}
                   isActive={variation.is_active}
+                  hasMedia={variation.media_type !== "none"}
                 />
               ))}
               {(variations ?? []).length === 0 ? (

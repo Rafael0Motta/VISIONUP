@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { CAMPAIGN_STATUS_LABELS, CAMPAIGN_STATUS_TONE, resumeStepPath } from "@/lib/campaigns/status";
 import { deleteCampaignDraft } from "./actions";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { DeleteButton } from "@/components/delete-button";
@@ -35,11 +36,14 @@ export default async function CampanhasPage({
     query = query.eq("created_by", clienteId);
   }
 
-  const [{ data: campaigns }, { data: cliente }] = await Promise.all([
+  const [{ data: campaigns }, { data: cliente }, clienteCanDeleteDraft] = await Promise.all([
     query,
     isFilteredByCliente
       ? supabase.from("profiles").select("full_name").eq("id", clienteId).single()
       : Promise.resolve({ data: null }),
+    actor.role === "cliente"
+      ? isFeatureEnabled("campanhas.exclusao_rascunho_cliente")
+      : Promise.resolve(true),
   ]);
 
   const filteredClienteName = isFilteredByCliente ? cliente?.full_name ?? "Cliente" : null;
@@ -113,7 +117,7 @@ export default async function CampanhasPage({
                         </Link>
                       </Button>
                     ) : null}
-                    {actor.role !== "superadmin" && c.status === "rascunho" ? (
+                    {actor.role !== "superadmin" && c.status === "rascunho" && clienteCanDeleteDraft ? (
                       <DeleteButton
                         action={deleteCampaignDraft.bind(null, c.id)}
                         confirmMessage={`Excluir o rascunho "${c.name}"? Essa ação não pode ser desfeita.`}

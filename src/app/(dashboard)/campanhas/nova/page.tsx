@@ -1,10 +1,12 @@
 import { requireRole } from "@/lib/auth/session";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 import { WizardSteps } from "../wizard-steps";
 import { NovaCampanhaForm } from "./form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function NovaCampanhaPage() {
   await requireRole(["admin", "cliente"]);
+  const profileCustomizationEnabled = await isFeatureEnabled("campanhas.personalizacao_perfil");
 
   return (
     <div className="flex flex-col gap-6">
@@ -20,7 +22,7 @@ export default async function NovaCampanhaPage() {
           <CardTitle>Identificação da campanha</CardTitle>
         </CardHeader>
         <CardContent>
-          <NovaCampanhaForm />
+          <NovaCampanhaForm profileCustomizationEnabled={profileCustomizationEnabled} />
         </CardContent>
       </Card>
     </div>

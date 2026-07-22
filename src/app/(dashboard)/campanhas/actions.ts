@@ -13,8 +13,9 @@ import {
   MAX_IMAGE_SIZE_BYTES,
   type TemplateVariable,
 } from "@/lib/templates/parse";
-import { uploadTemplateMedia } from "@/lib/templates/media";
+import { uploadTemplateMedia, copyCatalogMediaToCampaign } from "@/lib/templates/media";
 import { enqueueWebhook } from "@/lib/webhooks/dispatch";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 
 export type CampaignFormState = { error: string | null };
 export type TemplateFormState = { error: string | null };
@@ -33,7 +34,11 @@ export async function createCampaignDraft(
     return { error: "Informe o nome da campanha." };
   }
 
-  const profileEnabled = formData.get("profile_enabled") === "on";
+  // Bloqueio real (não só a UI escondendo o checkbox) — se a Central do
+  // Sistema desativou essa funcionalidade, ignora o que veio do form.
+  const profileEnabled =
+    formData.get("profile_enabled") === "on" &&
+    (await isFeatureEnabled("campanhas.personalizacao_perfil"));
   const displayName = String(formData.get("display_name") ?? "").trim();
   const photo = formData.get("photo");
 
@@ -133,6 +138,8 @@ export async function saveTemplateForCampaign(
   const variationId = formData.get("variation_id");
   let bodyText: string;
   let existingMediaPath: string | null = null;
+  let variationMediaType: "none" | "image" | "video" | "text" | null = null;
+  let variationMediaPath: string | null = null;
 
   if (existingTemplateId) {
     const { data: existing } = await supabase
@@ -152,7 +159,7 @@ export async function saveTemplateForCampaign(
   if (typeof variationId === "string" && variationId) {
     const { data: variation } = await supabase
       .from("message_variations")
-      .select("content")
+      .select("content, media_type, media_path")
       .eq("id", variationId)
       .eq("is_active", true)
       .maybeSingle();
@@ -160,8 +167,28 @@ export async function saveTemplateForCampaign(
       return { error: "Selecione uma variação válida do catálogo." };
     }
     bodyText = variation.content;
+    variationMediaType = variation.media_type;
+    variationMediaPath = variation.media_path;
   } else if (!existingTemplateId) {
     return { error: "Selecione uma variação do catálogo." };
+  }
+
+  // Escape hatch: em vez do texto travado do catálogo, o usuário escreveu a
+  // própria mensagem. Continua exigindo uma variação/linha de base (nunca dá
+  // pra começar 100% do zero) e só funciona se a Central do Sistema permitir.
+  const textOverridden = formData.get("text_override") === "on";
+  if (textOverridden) {
+    if (!(await isFeatureEnabled("campanhas.editar_texto_livre"))) {
+      return { error: "Edição livre do texto está desativada." };
+    }
+    const customBodyText = String(formData.get("custom_body_text") ?? "").trim();
+    if (!customBodyText) {
+      return { error: "Informe o texto da mensagem." };
+    }
+    if (customBodyText.length > 1024) {
+      return { error: "O texto não pode passar de 1024 caracteres." };
+    }
+    bodyText = customBodyText;
   }
 
   const variables = buildVariables(bodyText, formData);
@@ -182,10 +209,20 @@ export async function saveTemplateForCampaign(
   if (mediaError) {
     return { error: mediaError };
   }
-  const mediaPath = uploadedMediaPath ?? (mediaType === "none" ? null : existingMediaPath);
+  let mediaPath = uploadedMediaPath ?? (mediaType === "none" ? null : existingMediaPath);
+
+  // Primeira vez que a campanha usa essa variação (sem arquivo próprio
+  // enviado, sem mídia já salva): herda a mídia padrão do catálogo, copiando
+  // pro storage da campanha.
+  if (!mediaPath && mediaType !== "none" && variationMediaPath && variationMediaType === mediaType) {
+    mediaPath = await copyCatalogMediaToCampaign(supabase, actor.organization_id, campaignId, variationMediaPath);
+  }
 
   const admin = createAdminClient();
-  const auditMetadata = { variation_id: typeof variationId === "string" ? variationId : null, origem: "catalogo_variacoes" };
+  const auditMetadata = {
+    variation_id: typeof variationId === "string" ? variationId : null,
+    origem: textOverridden ? "texto_editado" : "catalogo_variacoes",
+  };
 
   if (existingTemplateId) {
     const { error } = await supabase
@@ -197,6 +234,7 @@ export async function saveTemplateForCampaign(
         footer_text: footerText || null,
         variables,
         buttons: buildButtons(formData),
+        text_overridden: textOverridden,
       })
       .eq("id", existingTemplateId);
 
@@ -233,6 +271,7 @@ export async function saveTemplateForCampaign(
         buttons: buildButtons(formData),
         use_variations: false,
         is_default: false,
+        text_overridden: textOverridden,
         created_by: actor.id,
       })
       .select("id")
@@ -489,6 +528,10 @@ export async function deleteCampaignDraft(campaignId: string) {
 
   if (!existing) {
     throw new Error("Campanha não encontrada ou não está mais em rascunho.");
+  }
+
+  if (actor.role === "cliente" && !(await isFeatureEnabled("campanhas.exclusao_rascunho_cliente"))) {
+    throw new Error("Exclusão de rascunho está desativada para clientes.");
   }
 
   // Grava o audit_log ANTES de apagar: audit_log.campaign_id referencia

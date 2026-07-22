@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 import { WizardSteps } from "../../wizard-steps";
 import { WizardBackLink } from "../../wizard-back-link";
-import { CatalogTemplateForm, type CatalogTemplateInitial } from "./catalog-template-form";
+import { CatalogTemplateForm, type CatalogTemplateInitial, type CatalogVariation } from "./catalog-template-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DEFAULT_OPT_OUT_FOOTER, type TemplateButton, type TemplateVariable } from "@/lib/templates/parse";
 
@@ -30,16 +31,34 @@ export default async function MensagemPage({
 
   const { data: variations } = await supabase
     .from("message_variations")
-    .select("id, content")
+    .select("id, content, media_type, media_path, footer_text, buttons")
     .eq("is_active", true);
 
-  const variationPool = variations ?? [];
+  const variationPool: CatalogVariation[] = await Promise.all(
+    (variations ?? []).map(async (v) => {
+      let mediaUrl: string | null = null;
+      if (v.media_path) {
+        const { data: signed } = await supabase.storage
+          .from("catalog-media")
+          .createSignedUrl(v.media_path, SIGNED_URL_TTL_SECONDS);
+        mediaUrl = signed?.signedUrl ?? null;
+      }
+      return {
+        id: v.id,
+        content: v.content,
+        media_type: v.media_type,
+        mediaUrl,
+        footer_text: v.footer_text,
+        buttons: (v.buttons as unknown as TemplateButton[]) ?? [],
+      };
+    })
+  );
 
   let initial: CatalogTemplateInitial | null = null;
   if (campaign.template_id) {
     const { data: template } = await supabase
       .from("templates")
-      .select("body_text, media_type, media_path, footer_text, buttons, variables")
+      .select("body_text, media_type, media_path, footer_text, buttons, variables, text_overridden")
       .eq("id", campaign.template_id)
       .maybeSingle();
 
@@ -58,9 +77,12 @@ export default async function MensagemPage({
         footer_text: template.footer_text,
         buttons: (template.buttons as unknown as TemplateButton[]) ?? [],
         variables: (template.variables as unknown as TemplateVariable[]) ?? [],
+        text_overridden: template.text_overridden,
       };
     }
   }
+
+  const allowTextOverride = await isFeatureEnabled("campanhas.editar_texto_livre");
 
   return (
     <div className="flex flex-col gap-6">
@@ -90,6 +112,7 @@ export default async function MensagemPage({
               variationPool={variationPool}
               initial={initial}
               defaultFooterText={DEFAULT_OPT_OUT_FOOTER}
+              allowTextOverride={allowTextOverride}
             />
           )}
         </CardContent>

@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 import { CreateClienteForm } from "./create-cliente-form";
 import { ClienteRow } from "./cliente-row";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +10,7 @@ export default async function ClientesPage() {
   const actor = await requireRole(["admin"]);
   const supabase = await createClient();
 
-  const [{ data: organization }, { data: clientes }, { data: campaigns }] = await Promise.all([
+  const [{ data: organization }, { data: clientes }, { data: campaigns }, canDelete] = await Promise.all([
     supabase
       .from("organizations")
       .select("name, display_name")
@@ -25,6 +26,7 @@ export default async function ClientesPage() {
       .from("campaigns")
       .select("created_by")
       .eq("organization_id", actor.organization_id as string),
+    isFeatureEnabled("clientes.admin_pode_excluir"),
   ]);
 
   const campaignCountByCliente = new Map<string, number>();
@@ -69,6 +71,7 @@ export default async function ClientesPage() {
                   fullName={cliente.full_name}
                   email={cliente.email}
                   campaignCount={campaignCountByCliente.get(cliente.id) ?? 0}
+                  canDelete={canDelete}
                 />
               ))}
               {(clientes ?? []).length === 0 ? (

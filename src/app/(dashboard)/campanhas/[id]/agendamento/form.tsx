@@ -18,6 +18,7 @@ type TemplateInfo = {
   footer_text: string | null;
   buttons: TemplateButton[];
   variables: TemplateVariable[];
+  text_overridden: boolean;
 };
 
 type ContactStats = {
@@ -106,6 +107,16 @@ export function AgendamentoForm({
                 . Essa foto e nome vão substituir os do número de WhatsApp usado no disparo.
               </p>
             </div>
+          </div>
+        ) : null}
+
+        {template?.text_overridden ? (
+          <div className="flex items-center gap-2 rounded-md border border-warning/30 bg-warning/10 p-3 text-sm">
+            <TriangleAlert className="size-4 shrink-0 text-warning-foreground" />
+            <p className="text-muted-foreground">
+              <strong className="text-foreground">Texto editado manualmente</strong> — foge do
+              padrão do catálogo, pode não ser aprovado e pode ser ajustado pela equipe técnica.
+            </p>
           </div>
         ) : null}
 

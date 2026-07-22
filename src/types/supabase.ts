@@ -333,29 +333,79 @@ export type Database = {
           },
         ]
       }
+      feature_flags: {
+        Row: {
+          category: string
+          description: string | null
+          enabled: boolean
+          key: string
+          label: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          category?: string
+          description?: string | null
+          enabled?: boolean
+          key: string
+          label: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          category?: string
+          description?: string | null
+          enabled?: boolean
+          key?: string
+          label?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_flags_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_variations: {
         Row: {
+          buttons: Json
           content: string
           created_at: string
           created_by: string | null
+          footer_text: string | null
           id: string
           is_active: boolean
+          media_path: string | null
+          media_type: Database["public"]["Enums"]["template_media_type"]
           updated_at: string
         }
         Insert: {
+          buttons?: Json
           content: string
           created_at?: string
           created_by?: string | null
+          footer_text?: string | null
           id?: string
           is_active?: boolean
+          media_path?: string | null
+          media_type?: Database["public"]["Enums"]["template_media_type"]
           updated_at?: string
         }
         Update: {
+          buttons?: Json
           content?: string
           created_at?: string
           created_by?: string | null
+          footer_text?: string | null
           id?: string
           is_active?: boolean
+          media_path?: string | null
+          media_type?: Database["public"]["Enums"]["template_media_type"]
           updated_at?: string
         }
         Relationships: [
@@ -444,6 +494,7 @@ export type Database = {
           media_type: Database["public"]["Enums"]["template_media_type"]
           name: string
           organization_id: string
+          text_overridden: boolean
           updated_at: string
           use_variations: boolean
           variables: Json
@@ -461,6 +512,7 @@ export type Database = {
           media_type?: Database["public"]["Enums"]["template_media_type"]
           name: string
           organization_id: string
+          text_overridden?: boolean
           updated_at?: string
           use_variations?: boolean
           variables?: Json
@@ -478,6 +530,7 @@ export type Database = {
           media_type?: Database["public"]["Enums"]["template_media_type"]
           name?: string
           organization_id?: string
+          text_overridden?: boolean
           updated_at?: string
           use_variations?: boolean
           variables?: Json

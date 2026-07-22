@@ -12,6 +12,7 @@ import {
   FileSpreadsheet,
   ScrollText,
   Settings,
+  SlidersHorizontal,
 } from "lucide-react";
 import { requireAuth } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -28,6 +29,7 @@ const NAV_BY_ROLE = {
     { href: "/webhooks", label: "Webhooks", icon: Webhook },
     { href: "/relatorios", label: "Relatórios", icon: FileSpreadsheet },
     { href: "/auditoria", label: "Auditoria", icon: ScrollText },
+    { href: "/central", label: "Central do Sistema", icon: SlidersHorizontal },
   ],
   admin: [
     { href: "/clientes", label: "Clientes", icon: Users },

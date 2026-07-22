@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateTemporaryPassword } from "@/lib/auth/password";
 import { enqueueWebhook } from "@/lib/webhooks/dispatch";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 
 export type ClienteFormState = {
   error: string | null;
@@ -185,6 +186,10 @@ export async function resetClientePassword(clienteId: string): Promise<{ passwor
 
 export async function deleteCliente(clienteId: string) {
   const actor = await requireRole(["admin", "superadmin"]);
+
+  if (actor.role === "admin" && !(await isFeatureEnabled("clientes.admin_pode_excluir"))) {
+    throw new Error("Exclusão de clientes está desativada para administradores.");
+  }
 
   const supabase = await createClient();
   const { data: target, error: fetchError } = await supabase

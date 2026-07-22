@@ -242,6 +242,16 @@ export function ApprovalCard({
             </div>
           ) : null}
 
+          {campaign.template?.text_overridden ? (
+            <div className="flex items-center gap-2 rounded-md border border-warning/30 bg-warning/10 p-3 text-sm">
+              <TriangleAlert className="size-4 shrink-0 text-warning-foreground" />
+              <p className="text-muted-foreground">
+                <strong className="text-foreground">Texto editado manualmente</strong> — foge do
+                padrão do catálogo, revise com atenção antes de aprovar.
+              </p>
+            </div>
+          ) : null}
+
           <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
             {campaign.template ? (
               <WhatsAppPreview

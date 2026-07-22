@@ -65,6 +65,52 @@ export async function createOrgAdmin(
   return { error: null, generatedPassword: password, createdEmail: email };
 }
 
+export async function updateOrgAdmin(
+  adminId: string,
+  _prevState: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const actor = await requireRole(["superadmin"]);
+  const fullName = String(formData.get("full_name") ?? "").trim();
+
+  if (!fullName) {
+    return { error: "Informe o nome do administrador." };
+  }
+
+  const supabase = await createClient();
+  const { data: target, error: fetchError } = await supabase
+    .from("profiles")
+    .select("id, organization_id")
+    .eq("id", adminId)
+    .eq("role", "admin")
+    .single();
+
+  if (fetchError || !target || !target.organization_id) {
+    return { error: "Administrador não encontrado." };
+  }
+
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update({ full_name: fullName })
+    .eq("id", adminId);
+
+  if (updateError) {
+    return { error: "Não foi possível atualizar o administrador." };
+  }
+
+  const admin = createAdminClient();
+  await admin.from("audit_log").insert({
+    actor_id: actor.id,
+    actor_role: actor.role,
+    action: "org_admin_updated",
+    organization_id: target.organization_id,
+    metadata: { admin_id: adminId, full_name: fullName },
+  });
+
+  revalidatePath(`/organizacoes/${target.organization_id}`);
+  return { error: null };
+}
+
 export async function resetAdminPassword(adminId: string): Promise<{ password: string }> {
   const actor = await requireRole(["superadmin"]);
 

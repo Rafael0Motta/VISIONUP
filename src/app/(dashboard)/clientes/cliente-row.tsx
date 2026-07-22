@@ -17,11 +17,13 @@ export function ClienteRow({
   fullName,
   email,
   campaignCount,
+  canDelete = true,
 }: {
   id: string;
   fullName: string | null;
   email: string;
   campaignCount: number;
+  canDelete?: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [state, formAction, isPending] = useActionState(
@@ -85,11 +87,13 @@ export function ClienteRow({
           confirmMessage={`Redefinir a senha de ${fullName ?? "este cliente"}? A senha atual deixa de funcionar.`}
           targetLabel={fullName ?? "cliente"}
         />
-        <DeleteButton
-          action={deleteCliente.bind(null, id)}
-          confirmMessage={`Excluir ${fullName ?? "este cliente"}? Isso remove também templates, campanhas e listas de contatos dele. Não pode ser desfeito.`}
-          successMessage="Cliente excluído."
-        />
+        {canDelete ? (
+          <DeleteButton
+            action={deleteCliente.bind(null, id)}
+            confirmMessage={`Excluir ${fullName ?? "este cliente"}? Isso remove também templates, campanhas e listas de contatos dele. Não pode ser desfeito.`}
+            successMessage="Cliente excluído."
+          />
+        ) : null}
       </TableCell>
     </TableRow>
   );

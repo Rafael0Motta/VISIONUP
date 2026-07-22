@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 import { DisplayNameForm } from "./display-name-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -7,11 +8,14 @@ export default async function ConfiguracoesPage() {
   const actor = await requireRole(["admin"]);
   const supabase = await createClient();
 
-  const { data: organization } = await supabase
-    .from("organizations")
-    .select("name, display_name")
-    .eq("id", actor.organization_id as string)
-    .single();
+  const [{ data: organization }, canEditDisplayName] = await Promise.all([
+    supabase
+      .from("organizations")
+      .select("name, display_name")
+      .eq("id", actor.organization_id as string)
+      .single(),
+    isFeatureEnabled("configuracoes.admin_pode_editar_nome_exibicao"),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -28,6 +32,7 @@ export default async function ConfiguracoesPage() {
           <DisplayNameForm
             realName={organization?.name ?? ""}
             displayName={organization?.display_name ?? ""}
+            canEdit={canEditDisplayName}
           />
         </CardContent>
       </Card>

@@ -12,9 +12,11 @@ const initialState: SettingsFormState = { error: null };
 export function DisplayNameForm({
   realName,
   displayName,
+  canEdit,
 }: {
   realName: string;
   displayName: string;
+  canEdit: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(
     updateOrganizationDisplayName,
@@ -40,19 +42,22 @@ export function DisplayNameForm({
           name="display_name"
           placeholder={realName}
           defaultValue={displayName}
-          disabled={isPending}
+          disabled={isPending || !canEdit}
         />
         <p className="text-xs text-muted-foreground">
-          Se preenchido, seus clientes veem esse nome em vez de &quot;{realName}&quot;. Deixe em
-          branco pra usar o nome real.
+          {canEdit
+            ? `Se preenchido, seus clientes veem esse nome em vez de "${realName}". Deixe em branco pra usar o nome real.`
+            : "Edição desativada pelo superadmin."}
         </p>
       </div>
 
       {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
 
-      <Button type="submit" disabled={isPending} className="w-fit">
-        {isPending ? "Salvando..." : "Salvar"}
-      </Button>
+      {canEdit ? (
+        <Button type="submit" disabled={isPending} className="w-fit">
+          {isPending ? "Salvando..." : "Salvar"}
+        </Button>
+      ) : null}
     </form>
   );
 }

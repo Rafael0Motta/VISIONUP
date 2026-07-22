@@ -38,7 +38,7 @@ export default async function AgendamentoPage({
     campaign.template_id
       ? supabase
           .from("templates")
-          .select("name, media_type, media_path, body_text, footer_text, buttons, variables")
+          .select("name, media_type, media_path, body_text, footer_text, buttons, variables, text_overridden")
           .eq("id", campaign.template_id)
           .single()
       : Promise.resolve({ data: null }),
@@ -97,6 +97,7 @@ export default async function AgendamentoPage({
                     footer_text: template.footer_text,
                     buttons: (template.buttons as unknown as TemplateButton[]) ?? [],
                     variables: (template.variables as unknown as TemplateVariable[]) ?? [],
+                    text_overridden: template.text_overridden,
                   }
                 : null
             }

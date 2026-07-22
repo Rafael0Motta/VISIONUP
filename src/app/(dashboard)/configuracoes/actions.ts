@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 
 export type SettingsFormState = { error: string | null };
 
@@ -17,6 +18,11 @@ export async function updateOrganizationDisplayName(
   formData: FormData
 ): Promise<SettingsFormState> {
   const actor = await requireRole(["admin"]);
+
+  if (!(await isFeatureEnabled("configuracoes.admin_pode_editar_nome_exibicao"))) {
+    return { error: "Edição do nome de exibição está desativada." };
+  }
+
   const displayName = String(formData.get("display_name") ?? "").trim();
 
   const supabase = await createClient();
