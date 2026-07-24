@@ -28,7 +28,7 @@ Clique em **Nova campanha**. O processo tem até 5 etapas:
 
 ### Etapa 1 — Identificação
 - Digite um **nome** para a campanha (é só pra você identificar depois, não vai na mensagem).
-- Se disponível, você pode marcar **"Personalizar perfil do WhatsApp usado nesta campanha"** — permite definir um nome de exibição e uma foto de perfil diferentes pra esse disparo específico. Se não marcar, o número de WhatsApp mantém o que já está configurado.
+- Se disponível, você pode marcar **"Personalizar perfil do WhatsApp usado nesta campanha"** — permite definir um nome de exibição e uma foto de perfil diferentes pra esse disparo específico. Se não marcar, os disparos serão feitos a partir de números padronizados.
 
 ### Etapa 2 — Mensagem
 O texto da mensagem vem de um catálogo pronto, mantido pela equipe — você não digita a mensagem do zero. O que você faz:
