@@ -20,6 +20,16 @@ import { isFeatureEnabled } from "@/lib/feature-flags";
 export type CampaignFormState = { error: string | null };
 export type TemplateFormState = { error: string | null };
 
+export type ContactsPreviewRow = { phone: string; name: string | null; isValid: boolean };
+export type ContactsPreview = {
+  fileName: string;
+  total: number;
+  validCount: number;
+  invalidCount: number;
+  sampleRows: ContactsPreviewRow[];
+};
+export type ContactsUploadState = { error: string | null; preview?: ContactsPreview };
+
 export async function createCampaignDraft(
   _prevState: CampaignFormState,
   formData: FormData
@@ -306,9 +316,9 @@ export async function saveTemplateForCampaign(
 
 export async function uploadCampaignContacts(
   campaignId: string,
-  _prevState: CampaignFormState,
+  _prevState: ContactsUploadState,
   formData: FormData
-): Promise<CampaignFormState> {
+): Promise<ContactsUploadState> {
   const actor = await requireRole(["admin", "cliente"]);
   if (!actor.organization_id) {
     return { error: "Organização não encontrada." };
@@ -443,7 +453,83 @@ export async function uploadCampaignContacts(
   });
 
   revalidatePath(`/campanhas/${campaignId}`);
-  redirect(`/campanhas/${campaignId}/agendamento`);
+  return {
+    error: null,
+    preview: {
+      fileName: file.name,
+      total: parsed.total,
+      validCount: parsed.validCount,
+      invalidCount: parsed.invalidCount,
+      sampleRows: parsed.rows.slice(0, 8).map((r) => ({ phone: r.phone, name: r.name, isValid: r.isValid })),
+    },
+  };
+}
+
+/**
+ * Etapa opcional do wizard — só informativa: grava a data desejada e avisa
+ * o n8n (que notifica o ClickUp). O app nunca libera a campanha sozinho por
+ * causa disso — a liberação de verdade continua manual em `releaseCampaign`.
+ * Data em branco = pular agendamento, não grava nem emite nada.
+ */
+export async function scheduleCampaign(
+  campaignId: string,
+  _prevState: CampaignFormState,
+  formData: FormData
+): Promise<CampaignFormState> {
+  const actor = await requireRole(["admin", "cliente"]);
+
+  const scheduledAtRaw = String(formData.get("scheduled_at") ?? "").trim();
+  if (!scheduledAtRaw) {
+    redirect(`/campanhas/${campaignId}/confirmacao`);
+  }
+
+  const scheduledAt = new Date(scheduledAtRaw);
+  if (Number.isNaN(scheduledAt.getTime())) {
+    return { error: "Data inválida." };
+  }
+  if (scheduledAt.getTime() < Date.now()) {
+    return { error: "A data de agendamento precisa ser no futuro." };
+  }
+
+  const supabase = await createClient();
+  const { data: campaign } = await supabase
+    .from("campaigns")
+    .select("organization_id, name")
+    .eq("id", campaignId)
+    .maybeSingle();
+
+  if (!campaign) {
+    return { error: "Campanha não encontrada." };
+  }
+
+  const { error } = await supabase
+    .from("campaigns")
+    .update({ scheduled_at: scheduledAt.toISOString() })
+    .eq("id", campaignId);
+
+  if (error) {
+    return { error: "Não foi possível salvar o agendamento." };
+  }
+
+  const admin = createAdminClient();
+  await admin.from("audit_log").insert({
+    actor_id: actor.id,
+    actor_role: actor.role,
+    action: "campaign_scheduled",
+    organization_id: campaign.organization_id,
+    campaign_id: campaignId,
+    metadata: { scheduled_at: scheduledAt.toISOString() },
+  });
+  await enqueueWebhook({
+    event: "campaign_scheduled",
+    organizationId: campaign.organization_id,
+    campaignId,
+    actor,
+    data: { name: campaign.name, scheduled_at: scheduledAt.toISOString() },
+  });
+
+  revalidatePath(`/campanhas/${campaignId}`);
+  redirect(`/campanhas/${campaignId}/confirmacao`);
 }
 
 export async function submitCampaignForApproval(
@@ -515,7 +601,7 @@ export async function submitCampaignForApproval(
   redirect("/campanhas");
 }
 
-export async function deleteCampaignDraft(campaignId: string) {
+export async function deleteCampaign(campaignId: string) {
   const actor = await requireRole(["admin", "cliente"]);
 
   const supabase = await createClient();
@@ -523,15 +609,17 @@ export async function deleteCampaignDraft(campaignId: string) {
     .from("campaigns")
     .select("id, name, status, organization_id")
     .eq("id", campaignId)
-    .eq("status", "rascunho") // defesa extra: essa action nunca apaga campanha fora de rascunho
+    // defesa extra: essa action nunca apaga campanha que já avançou além de
+    // rascunho/rejeitada (a que já foi aprovada/liberada guarda histórico real).
+    .in("status", ["rascunho", "rejeitado"])
     .maybeSingle();
 
   if (!existing) {
-    throw new Error("Campanha não encontrada ou não está mais em rascunho.");
+    throw new Error("Campanha não encontrada ou não está mais em rascunho/rejeitada.");
   }
 
   if (actor.role === "cliente" && !(await isFeatureEnabled("campanhas.exclusao_rascunho_cliente"))) {
-    throw new Error("Exclusão de rascunho está desativada para clientes.");
+    throw new Error("Exclusão de campanha está desativada para clientes.");
   }
 
   // Grava o audit_log ANTES de apagar: audit_log.campaign_id referencia
@@ -541,10 +629,10 @@ export async function deleteCampaignDraft(campaignId: string) {
   await admin.from("audit_log").insert({
     actor_id: actor.id,
     actor_role: actor.role,
-    action: "campaign_draft_deleted",
+    action: "campaign_deleted",
     organization_id: existing.organization_id,
     campaign_id: existing.id,
-    metadata: { name: existing.name },
+    metadata: { name: existing.name, status: existing.status },
   });
 
   const { error } = await supabase.from("campaigns").delete().eq("id", campaignId);

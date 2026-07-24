@@ -24,6 +24,7 @@ import { MobileNav } from "./mobile-nav";
 const NAV_BY_ROLE = {
   superadmin: [
     { href: "/organizacoes", label: "Organizações", icon: Building2 },
+    { href: "/campanhas", label: "Campanhas", icon: Megaphone },
     { href: "/aprovacoes", label: "Aprovações", icon: CheckSquare },
     { href: "/catalogo-variacoes", label: "Catálogo de Variações", icon: MessageSquareText },
     { href: "/webhooks", label: "Webhooks", icon: Webhook },

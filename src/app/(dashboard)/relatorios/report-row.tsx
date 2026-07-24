@@ -1,12 +1,13 @@
 "use client";
 
 import { useActionState, useRef } from "react";
-import { uploadManualReport, type ReportFormState } from "./actions";
+import { uploadManualReport, deleteReport, type ReportFormState } from "./actions";
 import { useActionToast } from "@/lib/use-action-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TableCell, TableRow } from "@/components/ui/table";
+import { DeleteButton } from "@/components/delete-button";
 import type { CampaignReport } from "./page";
 
 const initialState: ReportFormState = { error: null };
@@ -66,6 +67,12 @@ export function ReportRow({
                     </>
                   ) : null}
                 </span>
+                <DeleteButton
+                  action={deleteReport.bind(null, r.id)}
+                  confirmMessage="Excluir este relatório? A planilha (se houver) também é removida. Não pode ser desfeito."
+                  successMessage="Relatório excluído."
+                  label="Excluir"
+                />
               </div>
             ))}
           </div>

@@ -43,5 +43,5 @@ export function resumeStepPath(campaign: {
   if (campaign.status === "rejeitado") return `/campanhas/${campaign.id}/mensagem`;
   if (!campaign.template_id) return `/campanhas/${campaign.id}/mensagem`;
   if (!campaign.contact_list_id) return `/campanhas/${campaign.id}/contatos`;
-  return `/campanhas/${campaign.id}/agendamento`;
+  return `/campanhas/${campaign.id}/confirmacao`;
 }

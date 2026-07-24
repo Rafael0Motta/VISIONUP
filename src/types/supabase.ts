@@ -157,6 +157,52 @@ export type Database = {
           },
         ]
       }
+      campaign_status_updates: {
+        Row: {
+          campaign_id: string
+          comment: string | null
+          created_at: string
+          created_by: string
+          id: string
+          status: Database["public"]["Enums"]["campaign_pipeline_status"] | null
+        }
+        Insert: {
+          campaign_id: string
+          comment?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          status?:
+            | Database["public"]["Enums"]["campaign_pipeline_status"]
+            | null
+        }
+        Update: {
+          campaign_id?: string
+          comment?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          status?:
+            | Database["public"]["Enums"]["campaign_pipeline_status"]
+            | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_status_updates_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_status_updates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaigns: {
         Row: {
           approved_at: string | null
@@ -679,6 +725,14 @@ export type Database = {
     }
     Enums: {
       app_role: "superadmin" | "admin" | "cliente"
+      campaign_pipeline_status:
+        | "template_aprovado"
+        | "template_reprovado"
+        | "aguardando_validacao_meta"
+        | "disparo_iniciado"
+        | "disparo_em_andamento"
+        | "concluido"
+        | "outro"
       campaign_status:
         | "rascunho"
         | "aguardando_aprovacao"
@@ -823,6 +877,15 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["superadmin", "admin", "cliente"],
+      campaign_pipeline_status: [
+        "template_aprovado",
+        "template_reprovado",
+        "aguardando_validacao_meta",
+        "disparo_iniciado",
+        "disparo_em_andamento",
+        "concluido",
+        "outro",
+      ],
       campaign_status: [
         "rascunho",
         "aguardando_aprovacao",

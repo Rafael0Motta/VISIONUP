@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { CAMPAIGN_STATUS_LABELS, CAMPAIGN_STATUS_TONE, resumeStepPath } from "@/lib/campaigns/status";
-import { deleteCampaignDraft } from "./actions";
+import { deleteCampaign } from "./actions";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ export default async function CampanhasPage({
   let query = supabase
     .from("campaigns")
     .select(
-      "id, name, status, template_id, contact_list_id, rejection_reason, created_at, created_by, campaign_reports(origem, raw_file_path)"
+      "id, name, status, template_id, contact_list_id, rejection_reason, created_at, created_by, creator:profiles!campaigns_created_by_fkey(full_name), campaign_reports(origem, raw_file_path)"
     )
     .order("created_at", { ascending: false });
 
@@ -36,7 +36,7 @@ export default async function CampanhasPage({
     query = query.eq("created_by", clienteId);
   }
 
-  const [{ data: campaigns }, { data: cliente }, clienteCanDeleteDraft] = await Promise.all([
+  const [{ data: campaigns }, { data: cliente }, clienteCanDelete] = await Promise.all([
     query,
     isFilteredByCliente
       ? supabase.from("profiles").select("full_name").eq("id", clienteId).single()
@@ -81,6 +81,7 @@ export default async function CampanhasPage({
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
+                {actor.role === "superadmin" ? <TableHead>Cliente</TableHead> : null}
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -94,12 +95,22 @@ export default async function CampanhasPage({
                       <p className="text-xs text-destructive">Motivo: {c.rejection_reason}</p>
                     ) : null}
                   </TableCell>
+                  {actor.role === "superadmin" ? (
+                    <TableCell>
+                      <Link href={`/campanhas?clienteId=${c.created_by}`} className="text-sm underline">
+                        {(c.creator as { full_name: string | null } | null)?.full_name ?? "—"}
+                      </Link>
+                    </TableCell>
+                  ) : null}
                   <TableCell>
                     <StatusBadge tone={CAMPAIGN_STATUS_TONE[c.status]}>
                       {CAMPAIGN_STATUS_LABELS[c.status]}
                     </StatusBadge>
                   </TableCell>
                   <TableCell className="flex justify-end gap-2 text-right">
+                    <Button asChild size="sm" variant="ghost">
+                      <Link href={`/campanhas/${c.id}`}>Ver detalhes</Link>
+                    </Button>
                     {c.contact_list_id ? <DownloadContactListButton campaignId={c.id} /> : null}
                     {actor.role !== "admin" &&
                     c.campaign_reports?.some(
@@ -117,11 +128,13 @@ export default async function CampanhasPage({
                         </Link>
                       </Button>
                     ) : null}
-                    {actor.role !== "superadmin" && c.status === "rascunho" && clienteCanDeleteDraft ? (
+                    {actor.role !== "superadmin" &&
+                    (c.status === "rascunho" || c.status === "rejeitado") &&
+                    clienteCanDelete ? (
                       <DeleteButton
-                        action={deleteCampaignDraft.bind(null, c.id)}
-                        confirmMessage={`Excluir o rascunho "${c.name}"? Essa ação não pode ser desfeita.`}
-                        successMessage="Rascunho excluído."
+                        action={deleteCampaign.bind(null, c.id)}
+                        confirmMessage={`Excluir a campanha "${c.name}"? Essa ação não pode ser desfeita.`}
+                        successMessage="Campanha excluída."
                       />
                     ) : null}
                   </TableCell>
@@ -129,7 +142,10 @@ export default async function CampanhasPage({
               ))}
               {(campaigns ?? []).length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  <TableCell
+                    colSpan={actor.role === "superadmin" ? 4 : 3}
+                    className="text-center text-muted-foreground"
+                  >
                     Nenhuma campanha ainda.
                   </TableCell>
                 </TableRow>

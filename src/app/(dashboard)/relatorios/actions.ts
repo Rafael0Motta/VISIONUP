@@ -164,6 +164,48 @@ export async function uploadManualReport(
   return { error: null };
 }
 
+export async function deleteReport(reportId: string) {
+  const actor = await requireRole(["superadmin"]);
+
+  const supabase = await createClient();
+  const { data: report } = await supabase
+    .from("campaign_reports")
+    .select("raw_file_path, campaign_id, origem")
+    .eq("id", reportId)
+    .maybeSingle();
+
+  if (!report) {
+    throw new Error("Relatório não encontrado.");
+  }
+
+  if (report.raw_file_path && report.raw_file_path.includes("/")) {
+    await supabase.storage.from("campaign-reports").remove([report.raw_file_path]);
+  }
+
+  const { error } = await supabase.from("campaign_reports").delete().eq("id", reportId);
+  if (error) {
+    throw new Error("Não foi possível excluir o relatório.");
+  }
+
+  const { data: campaign } = await supabase
+    .from("campaigns")
+    .select("organization_id")
+    .eq("id", report.campaign_id)
+    .maybeSingle();
+
+  const admin = createAdminClient();
+  await admin.from("audit_log").insert({
+    actor_id: actor.id,
+    actor_role: actor.role,
+    action: "campaign_report_deleted",
+    organization_id: campaign?.organization_id ?? null,
+    campaign_id: report.campaign_id,
+    metadata: { report_id: reportId, origem: report.origem },
+  });
+
+  revalidatePath("/relatorios");
+}
+
 function displayFileNameFromPath(storagePath: string): string {
   const base = storagePath.split("/").pop() ?? storagePath;
   return base.replace(/^relatorio-\d+-/, "") || base;

@@ -38,12 +38,17 @@ rascunho → aguardando aprovação → aprovado → (pagamento registrado, em p
 ```
 - Pagamento é um controle paralelo — **não** bloqueia liberação (premissa a confirmar, ver PRD seção 9).
 - `campaign_released` é o evento que entrega ao n8n tudo que ele precisa (template renderizado + lista de contatos) para executar o disparo.
+- Entre "Contatos" e a revisão final do wizard existe uma etapa opcional de **Agendamento**: o cliente pode marcar uma data/hora desejada de envio, o que grava `campaigns.scheduled_at` e dispara o webhook `campaign_scheduled` (é assim que o n8n fica sabendo pra notificar o ClickUp — o app não integra com o ClickUp direto, nem aqui). É só uma referência pra equipe se organizar; **não libera nada sozinho** — a liberação de verdade continua manual (`campaign_released`).
+- Depois de liberada, o superadmin pode registrar uma timeline de andamento por campanha (`campaign_status_updates` — status como "Template aprovado", "Aguardando validação Meta", "Disparo iniciado" etc. + comentário livre, cada entrada opcionalmente com um ou outro). Visível também para admin/cliente da campanha (só leitura), em `/campanhas/[id]`.
+
+## Central do Sistema (feature flags)
+Painel só do superadmin (`/central`) com um catálogo de toggles (tabela `feature_flags`) que **restringem** funcionalidades já existentes — nunca concedem a um papel algo que a RLS do banco já não permitiria. Cada flag checada tanto na Server Action (bloqueio real) quanto na UI (esconder o controle). Toda funcionalidade opcional nova deveria nascer com uma flag aqui.
 
 ## Catálogo de webhooks (saída, app → n8n)
 Todo evento relevante precisa emitir um webhook. Lista completa em @docs/PRD-Plataforma-Disparos-WhatsApp-v2.md seção 4.4. Os principais:
-`client_created/updated/deleted`, `organization_created/updated`, `template_created/updated`, `template_set_as_default`, `campaign_created`, `campaign_submitted_for_approval`, `campaign_approved`, `campaign_rejected`, `campaign_payment_registered`, `campaign_released`, `campaign_sending_started`, `campaign_completed`, `campaign_failed`, `campaign_report_added`, `contact_list_uploaded`, `contact_list_validated`.
+`client_created/updated/deleted`, `organization_created/updated`, `template_created/updated`, `template_set_as_default`, `campaign_created`, `campaign_submitted_for_approval`, `campaign_approved`, `campaign_rejected`, `campaign_scheduled`, `campaign_released`, `campaign_sending_started`, `campaign_completed`, `campaign_failed`, `campaign_report_added`, `contact_list_uploaded`, `contact_list_validated`.
 
-Payload mínimo: `event`, `campaign_id` (quando aplicável), `organization_id`, `actor` (id + papel), `timestamp`, `data`.
+Payload mínimo: `event`, `campaign_id` (quando aplicável), `organization_id`, `actor` (id + papel), `timestamp`, `data`. Lista completa e sempre atual do catálogo em código: `src/lib/webhooks/catalog.ts`.
 
 ## API de entrada (n8n → app)
 - `POST /api/campaigns/{id}/status` — atualiza status (`enviando`, `concluído`, `falha`).
@@ -56,7 +61,7 @@ Duas formas de entrada, mesmo schema (`campaign_reports`):
 - **Manual:** upload de CSV/XLSX pelo admin/superadmin, com parsing e validação de colunas.
 
 ## Modelo de dados (tabelas-chave)
-`organizations`, `profiles` (role, organization_id), `templates` (+ `is_default`, `use_variations`), `message_variations` (catálogo do "Variar Texto"), `contact_lists` (+ `total_contacts`/`valid_contacts`/`invalid_contacts` — agregados calculados no parse; o CSV original fica só no Storage, **sem** tabela `contacts` linha a linha — inchava o banco sem nenhum consumidor real), `campaigns` (sem campos de pagamento — removido do MVP), `campaign_reports`, `webhook_configs` (+ segredo HMAC), `webhook_deliveries` (log/retry), `audit_log`.
+`organizations`, `profiles` (role, organization_id), `message_variations` (catálogo global de templates — texto com `{{N}}` + mídia/rodapé/botões padrão opcionais, gerenciado só pelo superadmin em `/catalogo-variacoes`), `templates` (não é mais autorado livremente — é a cópia por campanha do texto/mídia/rodapé/botões/variáveis escolhidos a partir de uma `message_variation`, com flag `text_overridden` quando o texto foi editado manualmente), `contact_lists` (+ `total_contacts`/`valid_contacts`/`invalid_contacts` — agregados calculados no parse; o CSV original fica só no Storage, **sem** tabela `contacts` linha a linha — inchava o banco sem nenhum consumidor real), `campaigns` (sem campos de pagamento — removido do MVP; + `scheduled_at` opcional), `campaign_reports`, `campaign_status_updates` (timeline de status/comentário pós-liberação, só superadmin escreve), `feature_flags` (Central do Sistema), `webhook_configs` (+ segredo HMAC), `webhook_deliveries` (log/retry), `audit_log`.
 
 ## Segurança (não negociável)
 - RLS ativa em todas as tabelas `public.*`, com policies por `organization_id` (admin) e por autor (cliente).

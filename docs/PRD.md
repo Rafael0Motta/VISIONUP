@@ -91,9 +91,10 @@ rascunho → aguardando aprovação → aprovado → pagamento registrado* → l
 
 1. **Cliente** cria a campanha no wizard:
    - **Identificação** — nome da campanha, remetente.
-   - **Mensagem** — o texto vem sempre de uma variação ativa do catálogo global (`/catalogo-variacoes`, mantido pelo superadmin); o cliente/admin só pode trocar a variação sorteada (botão "Variar template") e preencher as variáveis `{{N}}`, além de anexar mídia (imagem/vídeo), rodapé e botões próprios daquela campanha — nunca digita o corpo da mensagem.
-   - **Contatos** — upload de CSV; validação de formato de telefone.
-   - **Revisão** — prévia da mensagem; envia para aprovação → dispara `campaign_created` e `campaign_submitted_for_approval`.
+   - **Mensagem** — o texto vem sempre de uma variação ativa do catálogo global (`/catalogo-variacoes`, mantido pelo superadmin); o cliente/admin só pode trocar a variação sorteada (botão "Variar template") e preencher as variáveis `{{N}}`, além de anexar mídia (imagem/vídeo), rodapé e botões próprios daquela campanha — nunca digita o corpo da mensagem (exceto se a Central do Sistema liberar a flag `campanhas.editar_texto_livre`, caso em que aparece um aviso de que o texto foge do padrão e pode ser revisado pela equipe).
+   - **Contatos** — upload de CSV; validação de formato de telefone; prévia das primeiras linhas antes de avançar; link de download de um CSV modelo.
+   - **Agendamento (opcional)** — o cliente pode marcar uma data/hora desejada de envio (`scheduled_at`) ou pular. Só uma referência informativa — não libera nada sozinho, nem impede que o admin libere antes ou depois da data marcada.
+   - **Revisão** — prévia da mensagem (e da data agendada, se houver); envia para aprovação → dispara `campaign_created` e `campaign_submitted_for_approval`.
 2. **Admin/Superadmin** vê o item em `/aprovacoes`, com **prévia completa do template renderizado** e **resumo da lista de contatos** (total, válidos, inválidos).
 3. **Aprovação** → grava `approved_by`, `approved_at` → dispara webhook `campaign_approved`.
    **Rejeição** → grava `rejection_reason` → dispara webhook `campaign_rejected` → campanha volta ao cliente para edição.
@@ -103,10 +104,11 @@ rascunho → aguardando aprovação → aprovado → pagamento registrado* → l
    - `POST /api/campaigns/{id}/status` com `enviando` quando inicia o disparo real.
    - `POST /api/campaigns/{id}/status` com `concluído` (ou `falha`) ao terminar, e opcionalmente `POST /api/campaigns/{id}/report` já com as métricas consolidadas (envio automático de relatório).
 7. Cada mudança de status recebida do n8n também deve dis parar o webhook correspondente de volta para fora (ex.: `campaign_completed`) — útil se o próprio n8n quiser escutar confirmações do sistema, ou se outro sistema (ex.: ClickUp) também estiver escutando webhooks do app diretamente no futuro.
+8. **Pós-liberação**, o superadmin pode registrar uma timeline de andamento por campanha (`campaign_status_updates`): status granular pré-definido (Template aprovado/reprovado, Aguardando validação Meta, Disparo iniciado/em andamento, Concluído, Outro) e/ou comentário livre, cada entrada com um dos dois ou ambos. Visível (só leitura) também para o admin e o cliente da campanha, na página de detalhe `/campanhas/[id]`.
 
 ### 3.3 Templates
-- Não existe mais autoria de template por organização — nem `admin` nem `cliente` digitam o corpo da mensagem. O texto vem exclusivamente do **catálogo de variações** (`message_variations`), uma lista de textos com `{{N}}` gerenciada só pelo `superadmin` em `/catalogo-variacoes`.
-- No wizard de campanha (etapa "Mensagem"), o usuário escolhe uma variação ativa do catálogo (botão "Variar template" sorteia entre as ativas) e só preenche os valores de exemplo das variáveis `{{N}}`, além de anexar mídia (imagem/vídeo), rodapé e botões — esses três últimos são próprios de cada campanha, não fazem parte do catálogo. O servidor sempre revalida a variação escolhida contra `message_variations` (nunca confia no texto vindo do formulário), pra garantir que o corpo nunca seja adulterado.
+- Não existe mais autoria de template por organização — nem `admin` nem `cliente` digitam o corpo da mensagem. O texto vem exclusivamente do **catálogo de variações** (`message_variations`), uma lista de textos com `{{N}}` gerenciada só pelo `superadmin` em `/catalogo-variacoes`. O catálogo também pode ter mídia (imagem/vídeo), rodapé e botões **padrão** por variação — o superadmin cadastra um "template completo", não só texto solto.
+- No wizard de campanha (etapa "Mensagem"), o usuário escolhe uma variação ativa do catálogo (botão "Variar template" sorteia entre as ativas), o que já pré-preenche mídia/rodapé/botões padrão da variação (a mídia é copiada pro storage da própria campanha na primeira vez), e só preenche os valores de exemplo das variáveis `{{N}}` — mas pode trocar a mídia/rodapé/botões especificamente pra aquela campanha se quiser. O servidor sempre revalida a variação escolhida contra `message_variations` (nunca confia no texto vindo do formulário), pra garantir que o corpo nunca seja adulterado — a única exceção é a flag `campanhas.editar_texto_livre` (Central do Sistema), que quando ativada libera edição manual do texto com aviso de que foge do padrão.
 - Cada campanha grava sua própria linha em `templates` (corpo copiado da variação escolhida + mídia/rodapé/botões/variáveis daquela campanha) — a tabela deixou de ser algo editável livremente pelo usuário.
 - Nomenclatura de campos do wizard de template (herdada das melhorias já mapeadas no v1.0):
   - "Cabeçalho" → **Mídia** (imagem/vídeo/documento — sem opção de texto duplicada).
@@ -140,10 +142,13 @@ O n8n, por sua vez, chama de volta uma API do app (autenticada por token de serv
 ### 4.3 Modelo de dados (tabelas principais e novas)
 - `organizations` — contas tipo VisionUp.
 - `profiles` — id, role (`superadmin` | `admin` | `cliente`), organization_id, full_name.
-- `templates` — + `is_default` (boolean), mídia, texto, variáveis, status.
-- `contact_lists` + `contacts` — listas CSV com `is_valid` por contato.
-- `campaigns` — status, template_id, contact_list_id, rejection_reason, **+ `payment_status`, `payment_amount`, `payment_registered_by`, `payment_registered_at`, `payment_notes`**.
+- `message_variations` — catálogo global (superadmin), texto com `{{N}}` + mídia/rodapé/botões padrão opcionais, `is_active`.
+- `templates` — não é mais autorado livremente; é a cópia por campanha (corpo + mídia/rodapé/botões/variáveis + `is_default`, `text_overridden`).
+- `contact_lists` — listas CSV, com agregados `total_contacts`/`valid_contacts`/`invalid_contacts` (sem tabela `contacts` linha a linha).
+- `campaigns` — status, template_id, contact_list_id, rejection_reason, `scheduled_at` (opcional, informativo), **+ `payment_status`, `payment_amount`, `payment_registered_by`, `payment_registered_at`, `payment_notes`**.
 - `campaign_reports` **(nova)** — campaign_id, origem (`manual` | `automatico`), enviados, entregues, lidos, falhados, custo, importado_por, importado_em.
+- `campaign_status_updates` **(nova)** — campaign_id, status granular (enum: template aprovado/reprovado, aguardando validação Meta, disparo iniciado/em andamento, concluído, outro), comment, created_by, created_at — timeline pós-liberação, só superadmin escreve, admin/cliente da campanha leem.
+- `feature_flags` **(nova)** — key, label, description, category, enabled — catálogo de funcionalidades que o superadmin liga/desliga na Central do Sistema (`/central`); só restringe o que o papel já poderia fazer, nunca concede algo novo (não mexe em RLS).
 - `webhook_configs` — evento, URL de destino (n8n), ativo, **+ segredo HMAC** (ausente no MVP — recomenda-se adicionar agora, já que a confiabilidade do fluxo depende diretamente desses webhooks).
 - `webhook_deliveries` **(nova)** — evento, payload, URL, status (`entregue`/`falhou`/`retentando`), tentativas, último envio — necessária para dar visibilidade e retry, hoje uma lacuna conhecida do MVP.
 - `audit_log` — trilha imutável de ações sensíveis (inclui aprovação, rejeição, registro de pagamento, ingestão manual de relatório).
@@ -162,6 +167,7 @@ Esta é a peça central do requisito: **cada ação relevante do sistema precisa
 | `campaign_submitted_for_approval` | Cliente envia a campanha para aprovação |
 | `campaign_approved` | Admin/Superadmin aprova a campanha |
 | `campaign_rejected` | Admin/Superadmin rejeita a campanha (inclui motivo) |
+| `campaign_scheduled` | Cliente/Admin marca uma data/hora desejada de envio no wizard — é assim que o n8n sabe que precisa notificar o ClickUp (informativo, não libera nada) |
 | `campaign_payment_registered` | Admin/Superadmin registra o pagamento da campanha |
 | `campaign_released` | Admin/Superadmin libera a campanha — **este é o evento que entrega ao n8n tudo que ele precisa para executar o disparo** (template renderizado + lista de contatos) |
 | `campaign_sending_started` | Callback do n8n informando que o disparo começou na Infobip |
