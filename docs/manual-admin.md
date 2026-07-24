@@ -38,7 +38,7 @@ Na tela **Clientes**:
 Na tela **Campanhas** você vê todas as campanhas da sua organização (de todos os clientes) e também pode **criar uma nova campanha** você mesmo, seguindo o mesmo assistente que o cliente usa (identificação → mensagem → contatos → agendamento opcional → confirmação — veja o manual do cliente pra o passo a passo detalhado de cada etapa).
 
 Ações disponíveis por campanha:
-- **Ver detalhes** — abre a página da campanha, com o andamento pós-liberação (você só visualiza; quem registra as atualizações é o superadmin).
+- **Ver detalhes** — abre a página da campanha, com o andamento pós-liberação.
 - **Baixar lista de contatos** / **baixar relatório** — quando disponíveis.
 - **Continuar** / **Editar e reenviar** — pra campanhas em rascunho ou rejeitadas.
 - **Excluir** — pra campanhas em rascunho ou rejeitadas (se liberado pra sua conta).
